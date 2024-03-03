@@ -1,18 +1,5 @@
 <svelte:head>
-  <link
-    rel="stylesheet"
-    href="node_modules/svelte-material-ui/themes/svelte.css"
-    media="(prefers-color-scheme: light)"
-  />
-  <link
-    rel="stylesheet"
-    href="node_modules/svelte-material-ui/themes/svelte-dark.css"
-    media="screen and (prefers-color-scheme: dark)"
-  />
-  <link
-    rel="stylesheet"
-    href="style.css"
-  />
+  <link rel="stylesheet" href="node_modules/svelte-material-ui/bare.css" />
 </svelte:head>
 
 <script lang="ts">
@@ -49,7 +36,7 @@
   <div class="row">
     <Greet />
 
-    <Paper variant="outlined">
+    <Paper class="panel">
       <Title>Resources</Title>
       <Subtitle>Learn more about Tauri, Vite, and Svelte</Subtitle>
       <Content>
