@@ -8,9 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "tauri": "tauri",
-    "smui-theme-light": "smui-theme compile public/smui.css -i src/theme",
-    "smui-theme-dark": "smui-theme compile public/smui-dark.css -i src/theme/dark"
+    "tauri": "tauri"
   },
   "dependencies": {
     "@tauri-apps/api": "^1.5.3"
