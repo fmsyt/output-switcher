@@ -1,6 +1,24 @@
+<svelte:head>
+  <link
+    rel="stylesheet"
+    href="node_modules/svelte-material-ui/themes/svelte.css"
+    media="(prefers-color-scheme: light)"
+  />
+  <link
+    rel="stylesheet"
+    href="node_modules/svelte-material-ui/themes/svelte-dark.css"
+    media="screen and (prefers-color-scheme: dark)"
+  />
+  <link
+    rel="stylesheet"
+    href="style.css"
+  />
+</svelte:head>
+
 <script lang="ts">
-  import { onMount } from "svelte";
+  import Paper, { Content, Subtitle, Title } from '@smui/paper';
   import { window as tauriWindow } from "@tauri-apps/api";
+  import { onMount } from "svelte";
 
   import Greet from "./lib/Greet.svelte";
 
@@ -30,15 +48,24 @@
 
   <div class="row">
     <Greet />
+
+    <Paper variant="outlined">
+      <Title>Resources</Title>
+      <Subtitle>Learn more about Tauri, Vite, and Svelte</Subtitle>
+      <Content>
+        <ul>
+          <li>
+            <a href="https://tauri.app" target="_blank">Tauri</a>
+          </li>
+          <li>
+            <a href="https://vitejs.dev" target="_blank">Vite</a>
+          </li>
+          <li>
+            <a href="https://svelte.dev" target="_blank">Svelte</a>
+          </li>
+        </ul>
+      </Content>
+    </Paper>
   </div>
 </main>
 
-<style>
-  .logo.vite:hover {
-    filter: drop-shadow(0 0 2em #747bff);
-  }
-
-  .logo.svelte:hover {
-    filter: drop-shadow(0 0 2em #ff3e00);
-  }
-</style>
