@@ -1,8 +1,17 @@
 <script lang="ts">
-  import Greet from './lib/Greet.svelte'
+  import { onMount } from "svelte";
+  import { window as tauriWindow } from "@tauri-apps/api";
+
+  import Greet from "./lib/Greet.svelte";
+
+  onMount(async () => {
+    document.addEventListener("mousedown", async (_) => {
+      await tauriWindow.appWindow.startDragging();
+    });
+  });
 </script>
 
-<main class="container">
+<main class="container" data-tauri-drag-region>
   <h1>Welcome to Tauri!</h1>
 
   <div class="row">
@@ -17,15 +26,11 @@
     </a>
   </div>
 
-  <p>
-    Click on the Tauri, Vite, and Svelte logos to learn more.
-  </p>
+  <p>Click on the Tauri, Vite, and Svelte logos to learn more.</p>
 
   <div class="row">
     <Greet />
   </div>
-
-
 </main>
 
 <style>
