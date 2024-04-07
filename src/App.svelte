@@ -1,58 +1,112 @@
 <svelte:head>
   <link rel="stylesheet" href="node_modules/svelte-material-ui/bare.css" />
+  <link rel="stylesheet" href="/smui.css" media="(prefers-color-scheme: light)" />
+  <link rel="stylesheet" href="/smui-dark.css" media="screen and (prefers-color-scheme: dark)" />
+
+  <link rel="stylesheet" href="style.css">
+
 </svelte:head>
 
 <script lang="ts">
-  import Paper, { Content, Subtitle, Title } from '@smui/paper';
-  import { window as tauriWindow } from "@tauri-apps/api";
-  import { onMount } from "svelte";
+  import LayoutGrid, { Cell } from '@smui/layout-grid';
+  import Paper, { Content } from '@smui/paper';
+  import Select, { Option } from '@smui/select';
+  import Slider from '@smui/slider';
 
-  import Greet from "./lib/Greet.svelte";
+  import { window as tauriWindow } from "@tauri-apps/api";
+  import { onMount, onDestroy } from "svelte";
+  import Speaker from "svelte-material-icons/Speaker.svelte";
+
+  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+  import { invokeQuery } from './lib/ipc/query';
+  import type { AudioDeviceInfo, AudioStateChangePayload, WindowsAudioState } from './lib/types';
+
+  let defaultAudioDeviceId: string;
+  let defaultAudioDevice: AudioDeviceInfo | undefined;
+  let audioDeviceList: AudioDeviceInfo[] = [];
+
+  let unListen: UnlistenFn | undefined;
+
+  async function mousedownHandler() {
+    await tauriWindow.appWindow.startDragging();
+  }
 
   onMount(async () => {
-    document.addEventListener("mousedown", async (_) => {
-      await tauriWindow.appWindow.startDragging();
+    document.addEventListener("mousedown", mousedownHandler);
+
+    console.log("Listening for windowsAudioState");
+
+    unListen = await listen<AudioStateChangePayload>("audio_state_change", (event) => {
+      console.log("windowsAudioState", event.payload);
+
+      defaultAudioDeviceId = event.payload.windowsAudioState.default;
+      audioDeviceList = event.payload.windowsAudioState.audioDeviceList;
+
+      defaultAudioDevice = audioDeviceList.find((device) => device.id === defaultAudioDeviceId);
     });
+
+    invokeQuery({ kind: "QAudioDict" });
   });
+
+
+  onDestroy(() => {
+    unListen && unListen();
+    document.removeEventListener("mousedown", mousedownHandler);
+  });
+
+
 </script>
 
+<style>
+
+  .container * {
+    outline: olivedrab solid 1px;
+  }
+
+</style>
+
 <main class="container" data-tauri-drag-region>
-  <h1>Welcome to Tauri!</h1>
+  <LayoutGrid>
+    <Cell>
+      <Paper>
+        <Content class="flex-row-start">
+          <Select bind:value={defaultAudioDeviceId}>
+            {#each audioDeviceList as device}
+              <Option value={device.id}>{device.name}</Option>
+            {/each}
+          </Select>
+        </Content>
+      </Paper>
+    </Cell>
+    <Cell>
+      <Paper>
+        <Content class="flex-row-start">
+          <Speaker />
+          <span>{defaultAudioDevice?.name}</span>
+        </Content>
+      </Paper>
+    </Cell>
+    <Cell>
+      <Paper>
 
-  <div class="row">
-    <a href="https://vitejs.dev" target="_blank">
-      <img src="/vite.svg" class="logo vite" alt="Vite Logo" />
-    </a>
-    <a href="https://tauri.app" target="_blank">
-      <img src="/tauri.svg" class="logo tauri" alt="Tauri Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank">
-      <img src="/svelte.svg" class="logo svelte" alt="Svelte Logo" />
-    </a>
-  </div>
+        <Content class="flex-row-start">
+          <Slider />
+          <span>{defaultAudioDevice?.volume}</span>
+        </Content>
 
-  <p>Click on the Tauri, Vite, and Svelte logos to learn more.</p>
+      </Paper>
 
-  <div class="row">
-    <Greet />
+    </Cell>
+    <!--
+    <Cell>
+      <Paper>
+        <Content class="flex-row-start">
+          <pre>{JSON.stringify(audioDeviceList, null, 2)}</pre>
+        </Content>
+      </Paper>
+    </Cell>
+    -->
+  </LayoutGrid>
 
-    <Paper class="panel">
-      <Title>Resources</Title>
-      <Subtitle>Learn more about Tauri, Vite, and Svelte</Subtitle>
-      <Content>
-        <ul>
-          <li>
-            <a href="https://tauri.app" target="_blank">Tauri</a>
-          </li>
-          <li>
-            <a href="https://vitejs.dev" target="_blank">Vite</a>
-          </li>
-          <li>
-            <a href="https://svelte.dev" target="_blank">Svelte</a>
-          </li>
-        </ul>
-      </Content>
-    </Paper>
-  </div>
 </main>
 

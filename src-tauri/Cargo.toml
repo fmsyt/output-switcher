@@ -11,14 +11,37 @@ edition = "2021"
 tauri-build = { version = "1", features = [] }
 
 [dependencies]
-tauri = { version = "1", features = [ "system-tray",
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4.21"
+tokio = { version = "1.37.0", features = ["full"] }
+anyhow = "1.0.81"
+thiserror = "1.0.58"
+windows-interface = "0.53.0"
+
+[dependencies.tauri]
+version = "1"
+features = [
+    "system-tray",
     "window-set-decorations",
     "window-start-dragging",
     "window-set-always-on-top",
     "shell-open",
-] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+]
+
+[dependencies.windows]
+version = "0.54.0"
+features = [
+    "Win32_System_Com",
+    "Win32_Media_Audio",
+    "Win32_Media_Audio_Endpoints",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_Foundation",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_Devices_FunctionDiscovery",
+    "implement",
+]
+
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
