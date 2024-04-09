@@ -6,7 +6,7 @@ import App from "../App";
 import "./main.css";
 
 document.addEventListener("mousedown", async (_) => {
-  await tauriWindow.appWindow.startDragging();
+  // await tauriWindow.appWindow.startDragging();
 });
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

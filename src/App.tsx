@@ -66,41 +66,47 @@ function App() {
 
   }, [defaultDevice, muted]);
 
+  const displayVolume = useMemo(() => {
+    if (!defaultDevice) {
+      return null;
+    }
+
+    return Math.round(defaultDevice.volume * 100);
+  }, [defaultDevice?.volume]);
+
   return (
     <ThemeProvider>
       <CssBaseline />
-      <Box sx={{ width: "100%", height: "100vh" }}>
+      <Card sx={{ width: "100%", height: "100vh" }}>
+        <CardContent>
+          <Suspense fallback={<CircularProgress />}>
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <IconButton onClick={handleToggleMute}>
+                {muted ? <VolumeOffIcon /> : defaultDevice?.volume === 0 ? <VolumeMuteIcon /> : <VolumeUpIcon />}
+              </IconButton>
+              <Typography variant="h6">
+                {defaultDevice?.name}
+              </Typography>
+            </Stack>
 
-        <Card>
-          <CardContent>
-            <Suspense fallback={<CircularProgress />}>
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <IconButton onClick={handleToggleMute}>
-                  {muted ? <VolumeOffIcon /> : defaultDevice?.volume === 0 ? <VolumeMuteIcon /> : <VolumeUpIcon />}
-                </IconButton>
-                <Typography variant="h6">
-                  {defaultDevice?.name}
-                </Typography>
-                <Typography variant="h6">
-                  {defaultDevice?.volume}
-                </Typography>
-              </Stack>
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <Slider
+                defaultValue={initialVolume}
+                onChange={handleChangeVolume}
+                min={0}
+                max={1}
+                step={0.01}
+              />
+              <Typography variant="h6">
+                {displayVolume}
+              </Typography>
+            </Stack>
 
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <Slider
-                  defaultValue={initialVolume}
-                  onChange={handleChangeVolume}
-                  min={0}
-                  max={1}
-                  step={0.01}
-                />
-              </Stack>
-            </Suspense>
 
-          </CardContent>
-        </Card>
+          </Suspense>
 
-      </Box>
+        </CardContent>
+      </Card>
     </ThemeProvider>
   );
 }
