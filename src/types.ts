@@ -50,3 +50,9 @@ export interface AudioStateChangePayload {
   windowsAudioState: WindowsAudioState;
   notification?: Notify;
 }
+
+
+
+export interface MeterProps {
+  device: AudioDeviceInfo;
+}
