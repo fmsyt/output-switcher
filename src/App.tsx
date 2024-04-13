@@ -17,13 +17,21 @@ function App() {
       return;
     }
 
-    const width = cardRef.current.clientWidth;
-    const height = cardRef.current.clientHeight;
+    // with padding
+    const width = cardRef.current.clientWidth + 32;
+    const height = cardRef.current.clientHeight + 32;
 
     const physicalSize = new LogicalSize(width, height);
 
     const mainWindow = getCurrent();
     mainWindow.setSize(physicalSize);
+
+    const minSize = new LogicalSize(64, physicalSize.height);
+    const maxSize = new LogicalSize(physicalSize.width, physicalSize.height);
+
+    mainWindow.setMinSize(minSize);
+    mainWindow.setMaxSize(maxSize);
+
   }, [])
 
   const audioState = useWindowsAudioState();

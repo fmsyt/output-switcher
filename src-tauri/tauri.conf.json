@@ -21,7 +21,9 @@
         "setAlwaysOnTop": true,
         "setDecorations": true,
         "startDragging": true,
-        "setSize": true
+        "setSize": true,
+        "setMinSize": true,
+        "setMaxSize": true
       }
     },
     "windows": [

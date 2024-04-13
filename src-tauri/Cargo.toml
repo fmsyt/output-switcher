@@ -24,7 +24,7 @@ tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-works
 
 [dependencies.tauri]
 version = "1"
-features = [
+features = [ "window-set-min-size", "window-set-max-size",
     "window-set-size",
     "system-tray",
     "window-set-decorations",
