@@ -18,6 +18,7 @@ tokio = { version = "1.37.0", features = ["full"] }
 anyhow = "1.0.81"
 thiserror = "1.0.58"
 windows-interface = "0.53.0"
+tauri-plugin-context-menu = "0.7.1"
 
 [dependencies.tauri]
 version = "1"

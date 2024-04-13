@@ -1,6 +1,8 @@
 import { window as tauriWindow } from "@tauri-apps/api";
+import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/tauri";
 
-import { Grid, IconButton, Slider, Stack, Typography } from "@mui/material";
+import { Box, Grid, IconButton, Slider, Stack, Typography } from "@mui/material";
 import { MeterProps } from "./types";
 
 import VolumeMuteIcon from '@mui/icons-material/VolumeMute';
@@ -10,9 +12,25 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { invokeQuery } from "./ipc";
 
+
+async function registerListeners() {
+  const QDefaultAudioChange = listen('QDefaultAudioChange', (event) => {
+    invokeQuery({
+      kind: "QDefaultAudioChange",
+      id: event.payload as string,
+    });
+  });
+
+  await Promise.all([
+    QDefaultAudioChange,
+  ]);
+}
+
+registerListeners();
+
 export default function Meter(props: MeterProps) {
 
-  const { device } = props;
+  const { device, defaultVolume, deviceList } = props;
 
   const dragAreaRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -25,6 +43,7 @@ export default function Meter(props: MeterProps) {
     }
 
     dragAreaRef.current.addEventListener("mousedown", handler);
+
     return () => {
       dragAreaRef.current?.removeEventListener("mousedown", handler);
     }
@@ -37,6 +56,9 @@ export default function Meter(props: MeterProps) {
 
   const [volume, setVolume] = useState(device.volume || 0);
   const [muted, setMuted] = useState(device.muted);
+
+  useEffect(() => setVolume(defaultVolume || 0), [defaultVolume]);
+  useEffect(() => setMuted(device.muted), [device.muted]);
 
   const handleChangeVolume = useCallback((event: Event, volume: number | number[]) => {
 
@@ -59,7 +81,7 @@ export default function Meter(props: MeterProps) {
         id: device.id,
         volume: volume as number,
       });
-    }, 50);
+    }, 10);
   }, [device])
 
   const handleToggleMute = useCallback(async () => {
@@ -78,8 +100,39 @@ export default function Meter(props: MeterProps) {
 
   }, [device, muted]);
 
-  useEffect(() => setVolume(device.volume || 0), [device.volume]);
-  useEffect(() => setMuted(device.muted), [device.muted]);
+
+
+  const handleContextMenu = useCallback((e: MouseEvent) => {
+
+    if (!deviceList) {
+      return;
+    }
+
+    e.preventDefault();
+
+    const items = deviceList.map((d) => ({
+      label: d.name,
+      event: "QDefaultAudioChange",
+      payload: d.id,
+      checked: d.id === device.id,
+    }));
+
+    invoke("plugin:context_menu|show_context_menu", {
+      pos: { x: e.clientX, y: e.clientY },
+      items,
+    });
+
+
+  }, [device, deviceList]);
+
+  useEffect(() => {
+    window.addEventListener("contextmenu", handleContextMenu);
+
+    return () => {
+      window.removeEventListener("contextmenu", handleContextMenu);
+    }
+  }, [handleContextMenu]);
+
 
 
   return (
@@ -99,6 +152,7 @@ export default function Meter(props: MeterProps) {
         variant="h6"
         component="div"
         width="100%"
+        noWrap
       >
         {device.name}
       </Typography>
@@ -114,9 +168,11 @@ export default function Meter(props: MeterProps) {
           step={0.01}
           disabled={muted}
         />
-        <Typography variant="h6">
-          {displayVolume(volume)}
-        </Typography>
+        <Box textAlign="right" width="2em">
+          <Typography variant="h6">
+            {displayVolume(volume)}
+          </Typography>
+        </Box>
       </Stack>
 
     </Grid>

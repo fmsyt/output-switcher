@@ -3,7 +3,6 @@
 
 pub mod api;
 
-use log::log;
 use std::process::exit;
 use tauri::{
     async_runtime::Sender, AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent,
@@ -57,8 +56,7 @@ fn handle_system_tray(app: &AppHandle, event: SystemTrayEvent) {
 
 #[tauri::command]
 async fn query(tx: tauri::State<'_, Sender<Query>>, query: Query) -> Result<(), ABAPIError> {
-    // log::info!("query: {:?}", query);
-    println!("query: {:?}", query);
+    log::info!("query: {:?}", query);
     tx.send(query).await.map_err(|_| ABAPIError::Unexpected {
         inner: UnexpectedErr::MPSCClosedError,
     })?;
@@ -76,6 +74,7 @@ async fn main() -> Result<()> {
     } = prepare_backend().await?;
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_context_menu::init())
         .invoke_handler(tauri::generate_handler![query])
         .system_tray(create_task_tray())
         .on_window_event(handle_window)

@@ -55,4 +55,6 @@ export interface AudioStateChangePayload {
 
 export interface MeterProps {
   device: AudioDeviceInfo;
+  defaultVolume?: number;
+  deviceList?: AudioDeviceInfo[];
 }
