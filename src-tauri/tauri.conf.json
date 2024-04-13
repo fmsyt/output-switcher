@@ -55,7 +55,26 @@
         "icons/128x128@2x.png",
         "icons/icon.icns",
         "icons/icon.ico"
-      ]
+      ],
+      "windows": {
+        "allowDowngrades": true,
+        "nsis": null,
+        "tsp": false,
+        "webviewFixedRuntimePath": null,
+        "webviewInstallMode": {
+          "silent": true,
+          "type": "downloadBootstrapper"
+        },
+        "wix": {
+          "language": [
+            "en-US",
+            "ja-JP"
+          ]
+        },
+        "certificateThumbprint": "1B1A97B87C6059CB8B58A007D1FFDC00D4F61811",
+        "digestAlgorithm": "sha256",
+        "timestampUrl": "http://timestamp.comodoca.com"
+      }
     },
     "systemTray": {
       "iconAsTemplate": true,
