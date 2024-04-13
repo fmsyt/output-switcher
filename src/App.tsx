@@ -1,5 +1,7 @@
 import { Card, CardContent, CircularProgress, CssBaseline, Stack, Typography } from "@mui/material";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+
+import { LogicalSize, getCurrent } from "@tauri-apps/api/window";
 
 import ThemeProvider from "./ThemeProvider";
 import useWindowsAudioState from "./useWindowsAudioState";
@@ -7,6 +9,22 @@ import useWindowsAudioState from "./useWindowsAudioState";
 import Meter from "./Meter";
 
 function App() {
+
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+
+    if (!cardRef.current) {
+      return;
+    }
+
+    const width = cardRef.current.clientWidth;
+    const height = cardRef.current.clientHeight;
+
+    const physicalSize = new LogicalSize(width, height);
+
+    const mainWindow = getCurrent();
+    mainWindow.setSize(physicalSize);
+  }, [])
 
   const audioState = useWindowsAudioState();
 
@@ -32,7 +50,7 @@ function App() {
   return (
     <ThemeProvider>
       <CssBaseline />
-      <Card sx={{ width: "100%", height: "100vh" }}>
+      <Card ref={cardRef}>
         <CardContent>
           {defaultDevice && (
             <Meter

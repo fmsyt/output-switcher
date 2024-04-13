@@ -23,6 +23,7 @@ tauri-plugin-context-menu = "0.7.1"
 [dependencies.tauri]
 version = "1"
 features = [
+    "window-set-size",
     "system-tray",
     "window-set-decorations",
     "window-start-dragging",

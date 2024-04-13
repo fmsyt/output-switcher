@@ -20,7 +20,8 @@
         "all": false,
         "setAlwaysOnTop": true,
         "setDecorations": true,
-        "startDragging": true
+        "startDragging": true,
+        "setSize": true
       }
     },
     "windows": [
@@ -29,6 +30,7 @@
         "width": 800,
         "height": 600,
         "fullscreen": false,
+        "maximizable": false,
         "resizable": true,
         "transparent": true,
         "skipTaskbar": true,
