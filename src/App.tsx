@@ -1,4 +1,4 @@
-import { Card, CardContent, CircularProgress, CssBaseline, Stack, Typography } from "@mui/material";
+import { Card, CardContent, CircularProgress, CssBaseline, Stack } from "@mui/material";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { LogicalSize, getCurrent } from "@tauri-apps/api/window";
@@ -63,7 +63,6 @@ function App() {
           {!defaultDevice && (
             <Stack spacing={2} alignItems="center">
               <CircularProgress />
-              <Typography variant="h6">Loading...</Typography>
             </Stack>
           )}
 

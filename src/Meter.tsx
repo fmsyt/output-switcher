@@ -12,6 +12,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { invokeQuery } from "./ipc";
 
+const volumeStep = 0.01;
+
 
 async function registerListeners() {
   const QDefaultAudioChange = listen('QDefaultAudioChange', (event) => {
@@ -60,29 +62,71 @@ export default function Meter(props: MeterProps) {
   useEffect(() => setVolume(defaultVolume || 0), [defaultVolume]);
   useEffect(() => setMuted(device.muted), [device.muted]);
 
-  const handleChangeVolume = useCallback((event: Event, volume: number | number[]) => {
-
+  const invokeChangeVolume = useCallback(async (volume: number) => {
     if (!device) {
       return;
     }
-
-    event.stopPropagation();
-    event.preventDefault();
 
     if (handlerIdRef.current !== null) {
       clearTimeout(handlerIdRef.current);
     }
 
-    setVolume(volume as number);
-
     handlerIdRef.current = window.setTimeout(async () => {
       await invokeQuery({
         kind: "QVolumeChange",
         id: device.id,
-        volume: volume as number,
+        volume,
       });
     }, 10);
-  }, [device])
+
+  }, [device.id]);
+
+  const handleChangeVolume = useCallback((event: Event, volume: number | number[]) => {
+
+    event.stopPropagation();
+    event.preventDefault();
+
+    setVolume(volume as number);
+    invokeChangeVolume(volume as number);
+
+  }, [invokeChangeVolume])
+
+  const handleWheel = useCallback((event: WheelEvent) => {
+
+    if (!device) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    setVolume((volume) => {
+
+      const delta = event.deltaY || event.deltaX;
+
+      const direction = volume + (delta > 0 ? -volumeStep : volumeStep);
+      const nextVolume = Math.min(1, Math.max(0, direction));
+
+      invokeChangeVolume(nextVolume);
+
+      return nextVolume;
+    })
+
+
+  }, [invokeChangeVolume]);
+
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!scrollAreaRef.current) {
+      return;
+    }
+
+    scrollAreaRef.current.addEventListener("wheel", handleWheel);
+
+    return () => {
+      scrollAreaRef.current?.removeEventListener("wheel", handleWheel);
+    }
+  }, [handleWheel]);
 
   const handleToggleMute = useCallback(async () => {
 
@@ -159,13 +203,18 @@ export default function Meter(props: MeterProps) {
 
       <div></div>
 
-      <Stack direction="row" alignItems="center" spacing={2}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={2}
+        ref={scrollAreaRef}
+      >
         <Slider
           value={volume}
           onChange={handleChangeVolume}
           min={0}
           max={1}
-          step={0.01}
+          step={volumeStep}
           disabled={muted}
         />
         <Box textAlign="right" width="2em">
