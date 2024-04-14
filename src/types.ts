@@ -58,3 +58,8 @@ export interface MeterProps {
   defaultVolume?: number;
   deviceList?: AudioDeviceInfo[];
 }
+
+export interface AppContextValue {
+  addIgnoreDragTarget: (target: HTMLElement) => void;
+  removeIgnoreDragTarget: (target: HTMLElement) => void;
+}

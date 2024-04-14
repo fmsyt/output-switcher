@@ -1,14 +1,27 @@
 import { Card, CardContent, CircularProgress, CssBaseline, Stack } from "@mui/material";
-import { useCallback, useEffect, useMemo, useRef } from "react";
-
+import { window as tauriWindow } from "@tauri-apps/api";
 import { LogicalSize, getCurrent } from "@tauri-apps/api/window";
-
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import AppContext from "./AppContext";
+import Meter from "./Meter";
 import ThemeProvider from "./ThemeProvider";
 import useWindowsAudioState from "./useWindowsAudioState";
 
-import Meter from "./Meter";
-
 function App() {
+
+  const ignoreDragTargetsRef = useRef<HTMLElement[]>([]);
+
+  const addIgnoreDragTarget = useCallback((target: HTMLElement) => {
+    ignoreDragTargetsRef.current.push(target);
+  }, []);
+
+  const removeIgnoreDragTarget = useCallback((target: HTMLElement) => {
+    const index = ignoreDragTargetsRef.current.indexOf(target);
+    if (index !== -1) {
+      ignoreDragTargetsRef.current.splice(index, 1);
+    }
+  }, []);
+
 
   const cardRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -31,6 +44,21 @@ function App() {
 
     mainWindow.setMinSize(minSize);
     mainWindow.setMaxSize(maxSize);
+
+    const handler = async (e: MouseEvent) => {
+
+      if (ignoreDragTargetsRef.current.some(target => target.contains(e.target as Node))) {
+        return;
+      }
+
+      await tauriWindow.appWindow.startDragging();
+    }
+
+    cardRef.current.addEventListener("mousedown", (handler));
+
+    return () => {
+      cardRef.current?.removeEventListener("mousedown", handler);
+    }
 
   }, [])
 
@@ -58,24 +86,31 @@ function App() {
   return (
     <ThemeProvider>
       <CssBaseline />
-      <Card ref={cardRef}>
-        <CardContent>
-          {defaultDevice && (
-            <Meter
-              device={defaultDevice}
-              defaultVolume={getVolume(defaultDevice.id)}
-              deviceList={audioState?.audioDeviceList}
-            />
-          )}
+      <AppContext.Provider
+        value={{
+          addIgnoreDragTarget,
+          removeIgnoreDragTarget,
+        }}
+      >
+        <Card ref={cardRef}>
+          <CardContent>
+            {defaultDevice && (
+              <Meter
+                device={defaultDevice}
+                defaultVolume={getVolume(defaultDevice.id)}
+                deviceList={audioState?.audioDeviceList}
+              />
+            )}
 
-          {!defaultDevice && (
-            <Stack spacing={2} alignItems="center">
-              <CircularProgress />
-            </Stack>
-          )}
+            {!defaultDevice && (
+              <Stack spacing={2} alignItems="center">
+                <CircularProgress />
+              </Stack>
+            )}
 
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </AppContext.Provider>
     </ThemeProvider>
   );
 }

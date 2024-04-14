@@ -1,19 +1,15 @@
-import { window as tauriWindow } from "@tauri-apps/api";
-import { listen } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/tauri";
-
-import { Box, Grid, IconButton, Slider, Stack, Typography } from "@mui/material";
-import { MeterProps } from "./types";
-
 import VolumeMuteIcon from '@mui/icons-material/VolumeMute';
 import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
-import { useCallback, useEffect, useRef, useState } from "react";
-
+import { Grid, IconButton, Slider, Stack, Typography } from "@mui/material";
+import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/tauri";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import AppContext from "./AppContext";
 import { invokeQuery } from "./ipc";
+import { MeterProps } from "./types";
 
 const volumeStep = 0.01;
-
 
 async function registerListeners() {
   const QDefaultAudioChange = listen('QDefaultAudioChange', (event) => {
@@ -32,29 +28,24 @@ registerListeners();
 
 export default function Meter(props: MeterProps) {
 
-  const { device, defaultVolume, deviceList } = props;
+  const appContext = useContext(AppContext);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const sliderRef = useRef<HTMLSpanElement | null>(null);
 
-  const dragAreaRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (!dragAreaRef.current) {
-      return;
-    }
+    const { addIgnoreDragTarget, removeIgnoreDragTarget } = appContext;
 
-    const handler = async () => {
-      await tauriWindow.appWindow.startDragging();
-    }
-
-    dragAreaRef.current.addEventListener("mousedown", handler);
+    buttonRef.current && addIgnoreDragTarget(buttonRef.current);
+    sliderRef.current && addIgnoreDragTarget(sliderRef.current);
 
     return () => {
-      dragAreaRef.current?.removeEventListener("mousedown", handler);
+      buttonRef.current && removeIgnoreDragTarget(buttonRef.current);
+      sliderRef.current && removeIgnoreDragTarget(sliderRef.current);
     }
 
-  }, [])
+  }, [appContext])
 
-  const handlerIdRef = useRef<number | null>(null);
-
-  const displayVolume = useCallback((v: number) => Math.round(v * 100), []);
+  const { device, defaultVolume, deviceList } = props;
 
   const [volume, setVolume] = useState(device.volume || 0);
   const [muted, setMuted] = useState(device.muted);
@@ -62,6 +53,7 @@ export default function Meter(props: MeterProps) {
   useEffect(() => setVolume(defaultVolume || 0), [defaultVolume]);
   useEffect(() => setMuted(device.muted), [device.muted]);
 
+  const handlerIdRef = useRef<number | null>(null);
   const invokeChangeVolume = useCallback(async (volume: number) => {
     if (!device) {
       return;
@@ -128,6 +120,7 @@ export default function Meter(props: MeterProps) {
     }
   }, [handleWheel]);
 
+
   const handleToggleMute = useCallback(async () => {
 
     if (!device) {
@@ -178,6 +171,7 @@ export default function Meter(props: MeterProps) {
   }, [handleContextMenu]);
 
 
+  const displayVolume = useCallback((v: number) => Math.round(v * 100), []);
 
   return (
     <Grid
@@ -186,14 +180,19 @@ export default function Meter(props: MeterProps) {
       gridTemplateColumns={"max-content 1fr"}
       gridTemplateRows={"repeat(2, auto)"}
       alignItems="center"
+      ref={scrollAreaRef}
     >
-      <IconButton onClick={handleToggleMute}>
+      <IconButton
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={handleToggleMute}
+        size="small"
+        ref={buttonRef}
+      >
         {muted ? <VolumeOffIcon /> : volume === 0 ? <VolumeMuteIcon /> : <VolumeUpIcon />}
       </IconButton>
 
       <Typography
-        ref={dragAreaRef}
-        variant="h6"
+        variant="body1"
         component="div"
         width="100%"
         noWrap
@@ -207,21 +206,21 @@ export default function Meter(props: MeterProps) {
         direction="row"
         alignItems="center"
         spacing={2}
-        ref={scrollAreaRef}
       >
         <Slider
           value={volume}
+          onMouseDown={(e) => e.stopPropagation()}
           onChange={handleChangeVolume}
           min={0}
           max={1}
           step={volumeStep}
           disabled={muted}
+          size="small"
+          ref={sliderRef}
         />
-        <Box textAlign="right" width="2em">
-          <Typography variant="h6">
-            {displayVolume(volume)}
-          </Typography>
-        </Box>
+        <Typography variant="body1" textAlign="center" width="2em">
+          {displayVolume(volume)}
+        </Typography>
       </Stack>
 
     </Grid>
