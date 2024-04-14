@@ -1,7 +1,7 @@
 [package]
 name = "output-switcher"
 version = "0.0.0"
-description = "A Tauri App"
+description = "OutputSwitcher"
 authors = ["fmsyt"]
 edition = "2021"
 

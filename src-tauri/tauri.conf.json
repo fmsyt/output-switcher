@@ -7,7 +7,7 @@
   },
   "package": {
     "productName": "OutputSwitcher",
-    "version": "0.1.1"
+    "version": "0.1.2"
   },
   "tauri": {
     "allowlist": {
@@ -28,7 +28,7 @@
     },
     "windows": [
       {
-        "title": "Output Switcher",
+        "title": "OutputSwitcher",
         "width": 800,
         "height": 600,
         "fullscreen": false,
@@ -39,7 +39,8 @@
         "alwaysOnTop": true,
         "hiddenTitle": true,
         "titleBarStyle": "Visible",
-        "decorations": false
+        "decorations": false,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-gpu --disable-background-networking --kiosk"
       }
     ],
     "security": {
