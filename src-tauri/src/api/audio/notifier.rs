@@ -59,18 +59,6 @@ impl IMMNotificationClient_Impl for MyNotificationClient {
         pwstrdeviceid: &PCWSTR,
         dwnewstate: DEVICE_STATE,
     ) -> windows::core::Result<()> {
-        /*
-        unsafe {
-            println!(
-                "OnDeviceStateChange {{ Device ID: {}, State: {} }}",
-                pwstrdeviceid
-                    .to_string()
-                    .map_err(|e| to_win_error(e, ERROR_INVALID_DATA))?,
-                dwnewstate
-            );
-        }
-        */
-
         unsafe {
             self.0
                 .blocking_send(Notification::DeviceStateChanged {
@@ -87,17 +75,6 @@ impl IMMNotificationClient_Impl for MyNotificationClient {
     }
 
     fn OnDeviceAdded(&self, pwstrdeviceid: &PCWSTR) -> windows::core::Result<()> {
-        /*
-        unsafe {
-            println!(
-                "OnDeviceAdded {{ Device ID: {} }}",
-                pwstrdeviceid
-                    .to_string()
-                    .map_err(|e| to_win_error(e, ERROR_INVALID_DATA))?
-            );
-        }
-        */
-
         unsafe {
             self.0
                 .blocking_send(Notification::DeviceAdded {
@@ -113,17 +90,6 @@ impl IMMNotificationClient_Impl for MyNotificationClient {
     }
 
     fn OnDeviceRemoved(&self, pwstrdeviceid: &PCWSTR) -> windows::core::Result<()> {
-        /*
-        unsafe {
-            println!(
-                "OnDeviceRemoved {{ Device ID: {} }}",
-                pwstrdeviceid
-                    .to_string()
-                    .map_err(|e| to_win_error(e, ERROR_INVALID_DATA))?
-            );
-        }
-        */
-
         unsafe {
             self.0
                 .blocking_send(Notification::DeviceRemoved {
@@ -144,19 +110,6 @@ impl IMMNotificationClient_Impl for MyNotificationClient {
         _role: ERole,
         pwstrdefaultdeviceid: &PCWSTR,
     ) -> windows::core::Result<()> {
-        /*
-        unsafe {
-            println!(
-                "OnDefaultDeviceChanged {{ Flow: {:?}, Role: {:?}, Device ID: {} }}",
-                flow,
-                role,
-                pwstrdefaultdeviceid
-                    .to_string()
-                    .map_err(|e| to_win_error(e, ERROR_INVALID_DATA))?
-            );
-        }
-        */
-
         unsafe {
             self.0
                 .blocking_send(Notification::DefaultDeviceChanged {
@@ -176,18 +129,6 @@ impl IMMNotificationClient_Impl for MyNotificationClient {
         pwstrdeviceid: &PCWSTR,
         key: &PROPERTYKEY,
     ) -> windows::core::Result<()> {
-        /*
-        unsafe {
-            println!(
-                "OnPropertyValueChanged {{ Device ID: {}, Key: {:?} }}",
-                pwstrdeviceid
-                    .to_string()
-                    .map_err(|e| to_win_error(e, ERROR_INVALID_DATA))?,
-                key
-            );
-        }
-        */
-
         unsafe {
             self.0
                 .blocking_send(Notification::PropertyValueChanged {
@@ -209,10 +150,6 @@ struct MyAudioEndpointVolumeCallback(Sender<Notification>);
 
 impl IAudioEndpointVolumeCallback_Impl for MyAudioEndpointVolumeCallback {
     fn OnNotify(&self, data: *mut AUDIO_VOLUME_NOTIFICATION_DATA) -> windows::core::Result<()> {
-        /*
-        println!("OnNotify {{ {:?} }}", data);
-        */
-
         unsafe {
             if data == std::ptr::null_mut() {
                 return Err(to_win_error("data is null", ERROR_INVALID_DATA));
