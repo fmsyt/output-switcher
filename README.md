@@ -1,7 +1,16 @@
-# Tauri + Svelte + Typescript
+# Output Switcher
 
-This template should help get you started developing with Tauri, Svelte and TypeScript in Vite.
+Simple application for controlling volume and switching output destination for Windows.
 
-## Recommended IDE Setup
+## Features
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
+Slide or mouse scroll to control volume
+![](https://raw.githubusercontent.com/fmsyt/output-switcher/docs/docs/change_volume.gif)
+
+Toggle mute on click
+![](https://raw.githubusercontent.com/fmsyt/output-switcher/docs/docs/click_to_toggle_muted.gif)
+
+Switch output destination from context menu
+![](https://raw.githubusercontent.com/fmsyt/output-switcher/docs/docs/right_click_to_change_output.gif)
+
+<span style="color:gray">Application name might change in the future...</span>
