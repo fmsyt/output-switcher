@@ -9,7 +9,7 @@ pub enum UnexpectedErr {
 
 #[derive(serde::Serialize, Debug, Clone, Error)]
 #[serde(tag = "type")]
-pub enum ABAPIError {
+pub enum APIError {
     #[error("Unexpected error: {inner:?}")]
     Unexpected { inner: UnexpectedErr },
     #[error("SomethingWrong: {msg:?}")]

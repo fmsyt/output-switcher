@@ -11,7 +11,7 @@ use tauri::{
 
 use anyhow::Result;
 use api::{
-    error::{ABAPIError, UnexpectedErr},
+    error::{APIError, UnexpectedErr},
     init::{backend_tauri_setup, prepare_backend, BackendPrepareRet, Query},
 };
 
@@ -61,9 +61,9 @@ fn handle_system_tray(app: &AppHandle, event: SystemTrayEvent) {
 }
 
 #[tauri::command]
-async fn query(tx: tauri::State<'_, Sender<Query>>, query: Query) -> Result<(), ABAPIError> {
+async fn query(tx: tauri::State<'_, Sender<Query>>, query: Query) -> Result<(), APIError> {
     log::info!("query: {:?}", query);
-    tx.send(query).await.map_err(|_| ABAPIError::Unexpected {
+    tx.send(query).await.map_err(|_| APIError::Unexpected {
         inner: UnexpectedErr::MPSCClosedError,
     })?;
 
@@ -94,6 +94,12 @@ async fn main() -> Result<()> {
         .manage(query_tx)
         .setup(|app| {
             let _notification_thread = backend_tauri_setup(app, frontend_update_rx);
+
+            #[cfg(debug_assertions)]
+            {
+                let main_window = app.get_window("main").unwrap();
+                main_window.open_devtools();
+            }
 
             Ok(())
         })

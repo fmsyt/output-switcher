@@ -27,7 +27,7 @@ const RECEIVE_INTERVAL: Duration = Duration::from_millis(100);
 
 pub struct BackendPrepareRet {
     pub relay_thread: JoinHandle<Result<()>>,
-    pub backend_thread: JoinHandle<Result<(), ABAPIError>>,
+    pub backend_thread: JoinHandle<Result<(), APIError>>,
     pub query_tx: Sender<Query>,
     pub frontend_update_rx: Receiver<AudioStateChangePayload>,
 }
@@ -49,7 +49,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
 
             qt.send(Query::QAudioDictUpdate { notification })
                 .await
-                .map_err(|_| ABAPIError::Unexpected {
+                .map_err(|_| APIError::Unexpected {
                     inner: UnexpectedErr::MPSCClosedError,
                 })?;
         }
@@ -59,13 +59,13 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
 
     let backend_thread = tokio::spawn(async move {
         let is = Arc::new(InstantsSingleton::new(&backend_update_tx).map_err(|e| {
-            ABAPIError::SomethingWrong {
+            APIError::SomethingWrong {
                 msg: format!("@InstantsSingleton::new {:?}", e),
             }
         })?);
 
         let audio_dict = Arc::new(Mutex::new(get_audio_dict(&(is)).map_err(|e| {
-            ABAPIError::SomethingWrong {
+            APIError::SomethingWrong {
                 msg: format!("@get_audio_dict {:?}", e),
             }
         })?));
@@ -74,10 +74,10 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
             match q {
                 Query::QAudioDictUpdate { notification } => {
                     {
-                        let mut dict = audio_dict.lock().map_err(|_| ABAPIError::Unexpected {
+                        let mut dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
                             inner: UnexpectedErr::LockError,
                         })?;
-                        *dict = get_audio_dict(&is).map_err(|e| ABAPIError::SomethingWrong {
+                        *dict = get_audio_dict(&is).map_err(|e| APIError::SomethingWrong {
                             msg: format!("@get_audio_dict {:?}", e),
                         })?;
                     }
@@ -103,11 +103,11 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                     }
                 }
                 Query::QDefaultAudioChange { id } => {
-                    let dict = audio_dict.lock().map_err(|_| ABAPIError::Unexpected {
+                    let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
                         inner: UnexpectedErr::LockError,
                     })?;
 
-                    let audio_w = dict.get(&id).ok_or(ABAPIError::SomethingWrong {
+                    let audio_w = dict.get(&id).ok_or(APIError::SomethingWrong {
                         msg: format!("No such audio: {:?}", id),
                     });
 
@@ -121,7 +121,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
 
                     let e = audio
                         .set_as_default()
-                        .map_err(|e| ABAPIError::SomethingWrong {
+                        .map_err(|e| APIError::SomethingWrong {
                             msg: format!("audio.set_as_default {:?}", e),
                         });
 
@@ -131,11 +131,11 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                     }
                 }
                 Query::QVolumeChange { id, volume } => {
-                    let dict = audio_dict.lock().map_err(|_| ABAPIError::Unexpected {
+                    let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
                         inner: UnexpectedErr::LockError,
                     })?;
 
-                    let audio_w = dict.get(&id).ok_or(ABAPIError::SomethingWrong {
+                    let audio_w = dict.get(&id).ok_or(APIError::SomethingWrong {
                         msg: format!("No such audio: {:?}", id),
                     });
 
@@ -149,7 +149,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
 
                     let e = audio
                         .set_volume(volume)
-                        .map_err(|e| ABAPIError::SomethingWrong {
+                        .map_err(|e| APIError::SomethingWrong {
                             msg: format!("@audio.set_volume {:?}", e),
                         });
 
@@ -159,11 +159,11 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                     }
                 }
                 Query::QMuteStateChange { id, muted } => {
-                    let dict = audio_dict.lock().map_err(|_| ABAPIError::Unexpected {
+                    let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
                         inner: UnexpectedErr::LockError,
                     })?;
 
-                    let audio_w = dict.get(&id).ok_or(ABAPIError::SomethingWrong {
+                    let audio_w = dict.get(&id).ok_or(APIError::SomethingWrong {
                         msg: format!("No such audio: {:?}", id),
                     });
 
@@ -177,7 +177,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
 
                     let e = audio
                         .set_mute_state(muted)
-                        .map_err(|e| ABAPIError::SomethingWrong {
+                        .map_err(|e| APIError::SomethingWrong {
                             msg: format!("@audio.set_mute {:?}", e),
                         });
 
@@ -189,7 +189,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
             }
         }
 
-        Result::<(), ABAPIError>::Ok(())
+        Result::<(), APIError>::Ok(())
     });
 
     Ok(BackendPrepareRet {
@@ -283,7 +283,7 @@ async fn update_notifing_b2f(
 ) -> Result<()> {
     let default = is.get_default_audio_id()?;
     let all_audio_info = {
-        let dict = audio_dict.lock().map_err(|_| ABAPIError::Unexpected {
+        let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
             inner: UnexpectedErr::LockError,
         })?;
         WindowsAudioState::new(&dict, default)?
@@ -294,7 +294,7 @@ async fn update_notifing_b2f(
         notification,
     };
 
-    tx.send(unb2f).await.map_err(|_| ABAPIError::Unexpected {
+    tx.send(unb2f).await.map_err(|_| APIError::Unexpected {
         inner: UnexpectedErr::MPSCClosedError,
     })?;
 
