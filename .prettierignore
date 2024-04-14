@@ -1,2 +1,2 @@
 /*
-!/src/**/*.{js,ts,svelte}
+!/src/**/*.{js,ts,jsx,tsx}

@@ -7,8 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.json",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "lint": "prettier --check src",
+    "format": "prettier --write src"
   },
   "dependencies": {
     "@emotion/react": "^11.11.3",
