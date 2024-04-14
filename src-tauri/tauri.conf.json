@@ -6,8 +6,8 @@
     "distDir": "../dist"
   },
   "package": {
-    "productName": "Output Switcher",
-    "version": "0.1.0"
+    "productName": "OutputSwitcher",
+    "version": "0.1.1"
   },
   "tauri": {
     "allowlist": {

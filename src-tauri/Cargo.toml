@@ -2,7 +2,7 @@
 name = "output-switcher"
 version = "0.0.0"
 description = "A Tauri App"
-authors = ["you"]
+authors = ["fmsyt"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -24,7 +24,9 @@ tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-works
 
 [dependencies.tauri]
 version = "1"
-features = [ "window-set-min-size", "window-set-max-size",
+features = [
+    "window-set-min-size",
+    "window-set-max-size",
     "window-set-size",
     "system-tray",
     "window-set-decorations",
