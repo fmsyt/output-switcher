@@ -17,7 +17,7 @@ const useWindowsAudioState = () => {
       await listen<AudioStateChangePayload>("audio_state_change", (event) => {
         setAudioState(event.payload.windowsAudioState);
       });
-      await invokeQuery({ kind: "QAudioDict" });
+      await invokeQuery({ kind: "AudioDict" });
 
       console.log("initialized");
     };

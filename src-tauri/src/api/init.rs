@@ -7,20 +7,20 @@ use tokio::task::JoinHandle;
 use tokio::time::{timeout, Duration};
 
 use super::{
-    audio::{notifier::Notification, Audio, InstantsSingleton},
+    audio::{notifier::Notification, IMMAudioDevice, Singleton},
     error::*,
 };
 
-type AudioDict = BTreeMap<String, Audio>;
+type AudioDict = BTreeMap<String, IMMAudioDevice>;
 
 #[derive(serde::Deserialize, Debug, Clone)]
 #[serde(tag = "kind")]
-pub enum Query {
-    QAudioDictUpdate { notification: Notification },
-    QAudioDict,
-    QDefaultAudioChange { id: String },
-    QVolumeChange { id: String, volume: f32 },
-    QMuteStateChange { id: String, muted: bool },
+pub enum IPCHandlers {
+    AudioDictUpdate { notification: Notification },
+    AudioDict,
+    DefaultAudioChange { id: String },
+    VolumeChange { id: String, volume: f32 },
+    MuteStateChange { id: String, muted: bool },
 }
 
 const RECEIVE_INTERVAL: Duration = Duration::from_millis(100);
@@ -28,7 +28,7 @@ const RECEIVE_INTERVAL: Duration = Duration::from_millis(100);
 pub struct BackendPrepareRet {
     pub relay_thread: JoinHandle<Result<()>>,
     pub backend_thread: JoinHandle<Result<(), APIError>>,
-    pub query_tx: Sender<Query>,
+    pub query_tx: Sender<IPCHandlers>,
     pub frontend_update_rx: Receiver<AudioStateChangePayload>,
 }
 
@@ -47,7 +47,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                 }
             }
 
-            qt.send(Query::QAudioDictUpdate { notification })
+            qt.send(IPCHandlers::AudioDictUpdate { notification })
                 .await
                 .map_err(|_| APIError::Unexpected {
                     inner: UnexpectedErr::MPSCClosedError,
@@ -58,13 +58,14 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
     });
 
     let backend_thread = tokio::spawn(async move {
-        let is = Arc::new(InstantsSingleton::new(&backend_update_tx).map_err(|e| {
-            APIError::SomethingWrong {
-                msg: format!("@InstantsSingleton::new {:?}", e),
-            }
-        })?);
+        let is =
+            Arc::new(
+                Singleton::new(&backend_update_tx).map_err(|e| APIError::SomethingWrong {
+                    msg: format!("@InstantsSingleton::new {:?}", e),
+                })?,
+            );
 
-        let audio_dict = Arc::new(Mutex::new(get_audio_dict(&(is)).map_err(|e| {
+        let audio_dict = Arc::new(Mutex::new(get_audio_dictionary(&(is)).map_err(|e| {
             APIError::SomethingWrong {
                 msg: format!("@get_audio_dict {:?}", e),
             }
@@ -72,14 +73,15 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
 
         while let Some(q) = query_rx.recv().await {
             match q {
-                Query::QAudioDictUpdate { notification } => {
+                IPCHandlers::AudioDictUpdate { notification } => {
                     {
                         let mut dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
                             inner: UnexpectedErr::LockError,
                         })?;
-                        *dict = get_audio_dict(&is).map_err(|e| APIError::SomethingWrong {
-                            msg: format!("@get_audio_dict {:?}", e),
-                        })?;
+                        *dict =
+                            get_audio_dictionary(&is).map_err(|e| APIError::SomethingWrong {
+                                msg: format!("@get_audio_dict {:?}", e),
+                            })?;
                     }
                     let e = update_notifing_b2f(
                         &is,
@@ -94,7 +96,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                         // continue;
                     }
                 }
-                Query::QAudioDict => {
+                IPCHandlers::AudioDict => {
                     let e = update_notifing_b2f(&is, &audio_dict, None, &frontend_update_tx).await;
 
                     if let Err(e) = e {
@@ -102,7 +104,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                         // continue;
                     }
                 }
-                Query::QDefaultAudioChange { id } => {
+                IPCHandlers::DefaultAudioChange { id } => {
                     let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
                         inner: UnexpectedErr::LockError,
                     })?;
@@ -130,7 +132,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                         // continue;
                     }
                 }
-                Query::QVolumeChange { id, volume } => {
+                IPCHandlers::VolumeChange { id, volume } => {
                     let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
                         inner: UnexpectedErr::LockError,
                     })?;
@@ -158,7 +160,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                         // continue;
                     }
                 }
-                Query::QMuteStateChange { id, muted } => {
+                IPCHandlers::MuteStateChange { id, muted } => {
                     let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
                         inner: UnexpectedErr::LockError,
                     })?;
@@ -219,8 +221,8 @@ pub fn backend_tauri_setup(
     notification_thread
 }
 
-fn get_audio_dict(is: &Arc<InstantsSingleton>) -> Result<AudioDict> {
-    let res = InstantsSingleton::get_active_audios(is)?
+fn get_audio_dictionary(is: &Arc<Singleton>) -> Result<AudioDict> {
+    let res = Singleton::get_active_audio_devices(is)?
         .into_iter()
         .map(|a| (a.id.clone(), a))
         .collect();
@@ -237,7 +239,7 @@ struct AudioDeviceInfo {
 }
 
 impl AudioDeviceInfo {
-    fn from_audio(audio: &Audio) -> Result<Self> {
+    fn from_audio(audio: &IMMAudioDevice) -> Result<Self> {
         Ok(Self {
             id: audio.id.clone(),
             name: audio.name.clone(),
@@ -276,7 +278,7 @@ pub struct AudioStateChangePayload {
 }
 
 async fn update_notifing_b2f(
-    is: &Arc<InstantsSingleton>,
+    is: &Arc<Singleton>,
     audio_dict: &Arc<Mutex<AudioDict>>,
     notification: Option<Notification>,
     tx: &Sender<AudioStateChangePayload>,

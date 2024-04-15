@@ -6,21 +6,21 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/tauri";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import AppContext from "./AppContext";
-import { invokeQuery } from "./ipc";
+import { QueryKind, invokeQuery } from "./ipc";
 import { MeterProps } from "./types";
 
 const volumeStep = 0.01;
 
 async function registerListeners() {
-  const QDefaultAudioChange = listen('QDefaultAudioChange', (event) => {
+  const DefaultAudioChange = listen('DefaultAudioChange', (event) => {
     invokeQuery({
-      kind: "QDefaultAudioChange",
+      kind: "DefaultAudioChange",
       id: event.payload as string,
     });
   });
 
   await Promise.all([
-    QDefaultAudioChange,
+    DefaultAudioChange,
   ]);
 }
 
@@ -65,7 +65,7 @@ export default function Meter(props: MeterProps) {
 
     handlerIdRef.current = window.setTimeout(async () => {
       await invokeQuery({
-        kind: "QVolumeChange",
+        kind: "VolumeChange",
         id: device.id,
         volume,
       });
@@ -130,7 +130,7 @@ export default function Meter(props: MeterProps) {
     setMuted(!muted);
 
     await invokeQuery({
-      kind: "QMuteStateChange",
+      kind: "MuteStateChange",
       id: device.id,
       muted: !muted,
     });
@@ -147,9 +147,11 @@ export default function Meter(props: MeterProps) {
 
     e.preventDefault();
 
+    const event: QueryKind = "DefaultAudioChange";
+
     const items = deviceList.map((d) => ({
       label: d.name,
-      event: "QDefaultAudioChange",
+      event,
       payload: d.id,
       checked: d.id === device.id,
     }));

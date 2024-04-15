@@ -5,14 +5,14 @@ pub mod api;
 
 use std::process::exit;
 use tauri::{
-    async_runtime::Sender, AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent,
+    async_runtime::Sender, AppHandle, CustomMenuItem, Manager, State, SystemTray, SystemTrayEvent,
     SystemTrayMenu,
 };
 
 use anyhow::Result;
 use api::{
     error::{APIError, UnexpectedErr},
-    init::{backend_tauri_setup, prepare_backend, BackendPrepareRet, Query},
+    init::{backend_tauri_setup, prepare_backend, BackendPrepareRet, IPCHandlers},
 };
 
 #[derive(Clone, serde::Serialize)]
@@ -61,7 +61,7 @@ fn handle_system_tray(app: &AppHandle, event: SystemTrayEvent) {
 }
 
 #[tauri::command]
-async fn query(tx: tauri::State<'_, Sender<Query>>, query: Query) -> Result<(), APIError> {
+async fn query(tx: State<'_, Sender<IPCHandlers>>, query: IPCHandlers) -> Result<(), APIError> {
     log::info!("query: {:?}", query);
     tx.send(query).await.map_err(|_| APIError::Unexpected {
         inner: UnexpectedErr::MPSCClosedError,

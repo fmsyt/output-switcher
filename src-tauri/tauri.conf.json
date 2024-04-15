@@ -40,7 +40,7 @@
         "hiddenTitle": true,
         "titleBarStyle": "Visible",
         "decorations": false,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-gpu --disable-background-networking --kiosk"
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-gpu --disable-background-networking"
       }
     ],
     "security": {

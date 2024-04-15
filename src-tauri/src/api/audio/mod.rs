@@ -15,7 +15,6 @@ use windows::Win32::{
         StructuredStorage::PropVariantToStringAlloc, CLSCTX_ALL, STGM_READ,
     },
 };
-// use std::sync::mpsc::Sender;
 
 struct Com;
 
@@ -37,17 +36,17 @@ impl Drop for Com {
     }
 }
 
-pub struct InstantsSingleton {
+pub struct Singleton {
     _com: Com,
     pub(crate) device_enumerator: IMMDeviceEnumerator,
     notification_callbacks: notifier::NotificationCallbacks,
     policy_config: device_changer::PolicyConfig,
 }
 
-unsafe impl Send for InstantsSingleton {}
-unsafe impl Sync for InstantsSingleton {}
+unsafe impl Send for Singleton {}
+unsafe impl Sync for Singleton {}
 
-impl InstantsSingleton {
+impl Singleton {
     pub fn new(tx: &Sender<notifier::Notification>) -> Result<Self> {
         let com = Com::new()?;
         let device_enumerator = unsafe { CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)? };
@@ -56,7 +55,7 @@ impl InstantsSingleton {
 
         let policy_config = device_changer::PolicyConfig::new()?;
 
-        Ok(InstantsSingleton {
+        Ok(Singleton {
             _com: com,
             device_enumerator,
             notification_callbacks,
@@ -64,7 +63,7 @@ impl InstantsSingleton {
         })
     }
 
-    pub fn get_active_audios(self: &Arc<Self>) -> Result<Vec<Audio>> {
+    pub fn get_active_audio_devices(self: &Arc<Self>) -> Result<Vec<IMMAudioDevice>> {
         let device_collection = unsafe {
             self.device_enumerator
                 .EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE)?
@@ -72,14 +71,14 @@ impl InstantsSingleton {
 
         let len = unsafe { device_collection.GetCount()? };
 
-        let audios = (0..len)
+        let devices = (0..len)
             .map(|i| {
                 let device = unsafe { device_collection.Item(i)? };
-                Audio::new(Arc::clone(self), device)
+                IMMAudioDevice::new(Arc::clone(self), device)
             })
             .collect::<Result<Vec<_>>>()?;
 
-        Ok(audios)
+        Ok(devices)
     }
 
     pub fn get_default_audio_id(&self) -> Result<String> {
@@ -93,7 +92,7 @@ impl InstantsSingleton {
     }
 }
 
-impl Drop for InstantsSingleton {
+impl Drop for Singleton {
     fn drop(&mut self) {
         self.notification_callbacks
             .unregister_to_enumerator(&self.device_enumerator)
@@ -109,19 +108,19 @@ fn get_name_from_immdevice(device: &IMMDevice) -> Result<String> {
     Ok(name)
 }
 
-pub struct Audio {
+pub struct IMMAudioDevice {
     pub id: String,
     pub name: String,
     _device: IMMDevice,
     pub(crate) volume: IAudioEndpointVolume,
-    is: Arc<InstantsSingleton>,
+    is: Arc<Singleton>,
 }
 
-unsafe impl Send for Audio {}
-unsafe impl Sync for Audio {}
+unsafe impl Send for IMMAudioDevice {}
+unsafe impl Sync for IMMAudioDevice {}
 
-impl Audio {
-    pub fn new(is: Arc<InstantsSingleton>, device: IMMDevice) -> Result<Self> {
+impl IMMAudioDevice {
+    pub fn new(is: Arc<Singleton>, device: IMMDevice) -> Result<Self> {
         let id = unsafe { device.GetId()?.to_string()? };
         let name = get_name_from_immdevice(&device)?;
 
@@ -129,7 +128,7 @@ impl Audio {
 
         is.notification_callbacks.register_to_volume(&volume)?;
 
-        Ok(Audio {
+        Ok(IMMAudioDevice {
             id,
             name,
             _device: device,
@@ -174,7 +173,7 @@ impl Audio {
     }
 }
 
-impl Drop for Audio {
+impl Drop for IMMAudioDevice {
     fn drop(&mut self) {
         self.is
             .notification_callbacks

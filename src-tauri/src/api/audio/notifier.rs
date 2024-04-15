@@ -17,7 +17,6 @@ use windows::{
         UI::Shell::PropertiesSystem::PROPERTYKEY,
     },
 };
-// use std::sync::mpsc::Sender;
 
 fn to_win_error<E: Debug>(e: E, code: WIN32_ERROR) -> windows::core::Error {
     windows::core::Error::new::<String>(code.to_hresult(), format!("{:?}", e).into())
@@ -51,9 +50,9 @@ pub enum Notification {
 }
 
 #[implement(IMMNotificationClient)]
-struct MyNotificationClient(Sender<Notification>);
+struct AppEventHandlerClient(Sender<Notification>);
 
-impl IMMNotificationClient_Impl for MyNotificationClient {
+impl IMMNotificationClient_Impl for AppEventHandlerClient {
     fn OnDeviceStateChanged(
         &self,
         pwstrdeviceid: &PCWSTR,
@@ -146,9 +145,9 @@ impl IMMNotificationClient_Impl for MyNotificationClient {
 }
 
 #[implement(IAudioEndpointVolumeCallback)]
-struct MyAudioEndpointVolumeCallback(Sender<Notification>);
+struct AudioEndpointVolumeCallback(Sender<Notification>);
 
-impl IAudioEndpointVolumeCallback_Impl for MyAudioEndpointVolumeCallback {
+impl IAudioEndpointVolumeCallback_Impl for AudioEndpointVolumeCallback {
     fn OnNotify(&self, data: *mut AUDIO_VOLUME_NOTIFICATION_DATA) -> windows::core::Result<()> {
         unsafe {
             if data == std::ptr::null_mut() {
@@ -176,8 +175,8 @@ pub(crate) struct NotificationCallbacks {
 
 impl NotificationCallbacks {
     pub(crate) fn new(tx: &Sender<Notification>) -> Self {
-        let notification_client = MyNotificationClient(tx.clone()).into();
-        let volume_callback = MyAudioEndpointVolumeCallback(tx.clone()).into();
+        let notification_client = AppEventHandlerClient(tx.clone()).into();
+        let volume_callback = AudioEndpointVolumeCallback(tx.clone()).into();
 
         Self {
             notification_client,
