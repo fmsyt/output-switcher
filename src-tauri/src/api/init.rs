@@ -224,15 +224,12 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
     })
 }
 
-pub fn backend_tauri_setup(
-    app: &mut App<Wry>,
-    mut frontend_update_rx: Receiver<AudioStateChangePayload>,
-) -> JoinHandle<()> {
+pub fn setup(app: &mut App<Wry>, mut rx: Receiver<AudioStateChangePayload>) -> JoinHandle<()> {
     let main_window = app.get_window("main").unwrap();
 
     let mw = main_window.clone();
     let notification_thread = tokio::spawn(async move {
-        while let Some(unb2f) = frontend_update_rx.recv().await {
+        while let Some(unb2f) = rx.recv().await {
             let e = mw.emit("audio_state_change", unb2f);
             if let Err(e) = e {
                 log::error!("{:?}", e);

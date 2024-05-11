@@ -12,7 +12,7 @@ use tauri::{
 use anyhow::Result;
 use api::{
     error::{APIError, UnexpectedErr},
-    init::{backend_tauri_setup, prepare_backend, BackendPrepareRet, IPCHandlers},
+    init::{prepare_backend, setup, BackendPrepareRet, IPCHandlers},
 };
 
 #[derive(Clone, serde::Serialize)]
@@ -93,7 +93,7 @@ async fn main() -> Result<()> {
         .on_system_tray_event(handle_system_tray)
         .manage(query_tx)
         .setup(|app| {
-            let _notification_thread = backend_tauri_setup(app, frontend_update_rx);
+            setup(app, frontend_update_rx);
 
             #[cfg(debug_assertions)]
             {

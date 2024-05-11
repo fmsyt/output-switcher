@@ -118,8 +118,7 @@ pub struct IMMAudioDevice {
     pub name: String,
 
     /// @see https://learn.microsoft.com/ja-jp/windows/win32/api/mmdeviceapi/nn-mmdeviceapi-immdevice
-    #[allow(dead_code)]
-    device: IMMDevice,
+    _device: IMMDevice,
 
     /// @see https://learn.microsoft.com/ja-jp/windows/win32/api/endpointvolume/nn-endpointvolume-iaudioendpointvolume
     pub(crate) endpoint_volume: IAudioEndpointVolume,
@@ -136,6 +135,7 @@ impl IMMAudioDevice {
         // https://learn.microsoft.com/ja-jp/windows/win32/api/mmdeviceapi/nf-mmdeviceapi-immdevice-activate
         let volume: IAudioEndpointVolume = unsafe { device.Activate(CLSCTX_ALL, None)? };
 
+        #[cfg(debug_assertions)]
         unsafe {
             let session_manager: IAudioSessionManager2 = device.Activate(CLSCTX_ALL, None)?;
             let sessions = session_manager.GetSessionEnumerator()?;
@@ -156,7 +156,7 @@ impl IMMAudioDevice {
         Ok(IMMAudioDevice {
             id,
             name,
-            device,
+            _device: device,
             endpoint_volume: volume,
             is,
         })
