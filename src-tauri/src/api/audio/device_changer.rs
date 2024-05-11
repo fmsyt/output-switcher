@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use windows::{
     core::{interface, IUnknown, IUnknown_Vtbl, GUID, HRESULT},
     Win32::{
-        Media::Audio::{eCommunications, eConsole, eMultimedia, IAudioSessionEnumerator},
+        Media::Audio::{eCommunications, eConsole, eMultimedia},
         System::Com::{CoCreateInstance, CLSCTX_ALL},
     },
 };

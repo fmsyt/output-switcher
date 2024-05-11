@@ -7,9 +7,8 @@ use tokio::sync::mpsc::Sender;
 use windows::Win32::{
     Devices::FunctionDiscovery::PKEY_Device_FriendlyName,
     Media::Audio::{
-        eMultimedia, eRender, Endpoints::IAudioEndpointVolume, IAudioClient, IAudioSessionControl,
-        IAudioSessionEnumerator, IAudioSessionManager, IMMDevice, IMMDeviceEnumerator,
-        MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
+        eMultimedia, eRender, Endpoints::IAudioEndpointVolume, IAudioSessionManager2, IMMDevice,
+        IMMDeviceEnumerator, MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
     },
     System::Com::{
         CoCreateInstance, CoInitialize, CoUninitialize,
@@ -39,6 +38,8 @@ impl Drop for Com {
 
 pub struct Singleton {
     _com: Com,
+
+    /// @see https://learn.microsoft.com/ja-jp/windows/win32/api/mmdeviceapi/nn-mmdeviceapi-immdeviceenumerator
     pub(crate) device_enumerator: IMMDeviceEnumerator,
     notification_callbacks: notifier::NotificationCallbacks,
     policy_config: device_changer::PolicyConfig,
@@ -65,6 +66,7 @@ impl Singleton {
     }
 
     pub fn get_active_audio_devices(self: &Arc<Self>) -> Result<Vec<IMMAudioDevice>> {
+        // https://learn.microsoft.com/ja-jp/windows/win32/api/mmdeviceapi/nn-mmdeviceapi-immdevicecollection
         let device_collection = unsafe {
             self.device_enumerator
                 .EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE)?
@@ -110,11 +112,17 @@ fn get_name_from_immdevice(device: &IMMDevice) -> Result<String> {
 }
 
 pub struct IMMAudioDevice {
+    is: Arc<Singleton>,
+
     pub id: String,
     pub name: String,
-    _device: IMMDevice,
-    pub(crate) volume: IAudioEndpointVolume,
-    is: Arc<Singleton>,
+
+    /// @see https://learn.microsoft.com/ja-jp/windows/win32/api/mmdeviceapi/nn-mmdeviceapi-immdevice
+    #[allow(dead_code)]
+    device: IMMDevice,
+
+    /// @see https://learn.microsoft.com/ja-jp/windows/win32/api/endpointvolume/nn-endpointvolume-iaudioendpointvolume
+    pub(crate) endpoint_volume: IAudioEndpointVolume,
 }
 
 unsafe impl Send for IMMAudioDevice {}
@@ -125,15 +133,31 @@ impl IMMAudioDevice {
         let id = unsafe { device.GetId()?.to_string()? };
         let name = get_name_from_immdevice(&device)?;
 
+        // https://learn.microsoft.com/ja-jp/windows/win32/api/mmdeviceapi/nf-mmdeviceapi-immdevice-activate
         let volume: IAudioEndpointVolume = unsafe { device.Activate(CLSCTX_ALL, None)? };
+
+        unsafe {
+            let session_manager: IAudioSessionManager2 = device.Activate(CLSCTX_ALL, None)?;
+            let sessions = session_manager.GetSessionEnumerator()?;
+
+            println!("{:?}", sessions.GetCount()?);
+
+            for i in 0..sessions.GetCount()? {
+                let session = sessions.GetSession(i)?;
+                let name = session.GetDisplayName()?;
+
+                let state = session.GetState()?;
+                println!("{:?} {:?}", name.to_string()?, state);
+            }
+        }
 
         is.notification_callbacks.register_to_volume(&volume)?;
 
         Ok(IMMAudioDevice {
             id,
             name,
-            _device: device,
-            volume,
+            device,
+            endpoint_volume: volume,
             is,
         })
     }
@@ -145,20 +169,20 @@ impl IMMAudioDevice {
     }
 
     pub fn get_volume(&self) -> Result<f32> {
-        let volume = unsafe { self.volume.GetMasterVolumeLevelScalar()? };
+        let volume = unsafe { self.endpoint_volume.GetMasterVolumeLevelScalar()? };
 
         Ok(volume)
     }
 
     pub fn get_mute_state(&self) -> Result<bool> {
-        let mute_state = unsafe { self.volume.GetMute()?.as_bool() };
+        let mute_state = unsafe { self.endpoint_volume.GetMute()?.as_bool() };
 
         Ok(mute_state)
     }
 
     pub fn set_volume(&self, volume: f32) -> Result<()> {
         unsafe {
-            self.volume
+            self.endpoint_volume
                 .SetMasterVolumeLevelScalar(volume, std::ptr::null())?;
         }
 
@@ -167,35 +191,15 @@ impl IMMAudioDevice {
 
     pub fn set_mute_state(&self, mute_state: bool) -> Result<()> {
         unsafe {
-            self.volume.SetMute(mute_state, std::ptr::null())?;
+            self.endpoint_volume.SetMute(mute_state, std::ptr::null())?;
         }
 
         Ok(())
     }
 
     pub fn get_channels(&self) -> Result<u32> {
-        let channels = unsafe { self.volume.GetChannelCount()? };
-
+        let channels = unsafe { self.endpoint_volume.GetChannelCount()? };
         Ok(channels)
-
-        // unsafe {
-        //     let client: IAudioClient = self._device.Activate(CLSCTX_ALL, None)?;
-        //     let manager = client.GetService::<IAudioSessionManager>()?;
-
-        //     let sessions: IAudioSessionEnumerator = manager.GetAudioSessionControl()?;
-        //     let count = sessions.GetCount()?;
-
-        //     println!("count: {:?}", sessions);
-
-        //     for i in 0..count {
-        //         let session: IAudioSessionControl = sessions.GetSession(i)?;
-        //         let name = session.GetDisplayName()?;
-
-        //         println!("name: {:?}", name);
-        //     }
-
-        //     Ok(count)
-        // }
     }
 }
 
@@ -203,7 +207,7 @@ impl Drop for IMMAudioDevice {
     fn drop(&mut self) {
         self.is
             .notification_callbacks
-            .unregister_to_volume(&self.volume)
+            .unregister_to_volume(&self.endpoint_volume)
             .unwrap();
     }
 }
