@@ -170,17 +170,17 @@ impl IAudioEndpointVolumeCallback_Impl for AudioEndpointVolumeCallback {
 
 pub(crate) struct NotificationCallbacks {
     notification_client: IMMNotificationClient,
-    volume_callback: IAudioEndpointVolumeCallback,
+    endpoint_volume_callback: IAudioEndpointVolumeCallback,
 }
 
 impl NotificationCallbacks {
     pub(crate) fn new(tx: &Sender<Notification>) -> Self {
         let notification_client = AppEventHandlerClient(tx.clone()).into();
-        let volume_callback = AudioEndpointVolumeCallback(tx.clone()).into();
+        let endpoint_volume_callback = AudioEndpointVolumeCallback(tx.clone()).into();
 
         Self {
             notification_client,
-            volume_callback,
+            endpoint_volume_callback,
         }
     }
 
@@ -208,7 +208,7 @@ impl NotificationCallbacks {
 
     pub(crate) fn register_to_volume(&self, volume: &IAudioEndpointVolume) -> Result<()> {
         unsafe {
-            volume.RegisterControlChangeNotify(&self.volume_callback)?;
+            volume.RegisterControlChangeNotify(&self.endpoint_volume_callback)?;
         }
 
         Ok(())
@@ -216,7 +216,7 @@ impl NotificationCallbacks {
 
     pub(crate) fn unregister_to_volume(&self, volume: &IAudioEndpointVolume) -> Result<()> {
         unsafe {
-            volume.UnregisterControlChangeNotify(&self.volume_callback)?;
+            volume.UnregisterControlChangeNotify(&self.endpoint_volume_callback)?;
         }
 
         Ok(())
