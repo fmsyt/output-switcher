@@ -3,8 +3,10 @@
 use anyhow::{anyhow, Result};
 use windows::{
     core::{interface, IUnknown, IUnknown_Vtbl, GUID, HRESULT},
-    Win32::Media::Audio::{eCommunications, eConsole, eMultimedia},
-    Win32::System::Com::{CoCreateInstance, CLSCTX_ALL},
+    Win32::{
+        Media::Audio::{eCommunications, eConsole, eMultimedia, IAudioSessionEnumerator},
+        System::Com::{CoCreateInstance, CLSCTX_ALL},
+    },
 };
 
 #[interface("F8679F50-850A-41CF-9C72-430F290290C8")]

@@ -7,7 +7,8 @@ use tokio::sync::mpsc::Sender;
 use windows::Win32::{
     Devices::FunctionDiscovery::PKEY_Device_FriendlyName,
     Media::Audio::{
-        eMultimedia, eRender, Endpoints::IAudioEndpointVolume, IMMDevice, IMMDeviceEnumerator,
+        eMultimedia, eRender, Endpoints::IAudioEndpointVolume, IAudioClient, IAudioSessionControl,
+        IAudioSessionEnumerator, IAudioSessionManager, IMMDevice, IMMDeviceEnumerator,
         MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
     },
     System::Com::{
@@ -170,6 +171,31 @@ impl IMMAudioDevice {
         }
 
         Ok(())
+    }
+
+    pub fn get_channels(&self) -> Result<u32> {
+        let channels = unsafe { self.volume.GetChannelCount()? };
+
+        Ok(channels)
+
+        // unsafe {
+        //     let client: IAudioClient = self._device.Activate(CLSCTX_ALL, None)?;
+        //     let manager = client.GetService::<IAudioSessionManager>()?;
+
+        //     let sessions: IAudioSessionEnumerator = manager.GetAudioSessionControl()?;
+        //     let count = sessions.GetCount()?;
+
+        //     println!("count: {:?}", sessions);
+
+        //     for i in 0..count {
+        //         let session: IAudioSessionControl = sessions.GetSession(i)?;
+        //         let name = session.GetDisplayName()?;
+
+        //         println!("name: {:?}", name);
+        //     }
+
+        //     Ok(count)
+        // }
     }
 }
 

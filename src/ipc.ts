@@ -21,8 +21,12 @@ export type MuteStateChange = {
   muted: boolean;
 };
 
+export type Channels = {
+  kind: "Channels";
+};
 
-export type Query = AudioDict | DefaultAudioChange | VolumeChange | MuteStateChange;
+
+export type Query = AudioDict | DefaultAudioChange | VolumeChange | MuteStateChange | Channels;
 
 export type QueryKind = Query["kind"];
 

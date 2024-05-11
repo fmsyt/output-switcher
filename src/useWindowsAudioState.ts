@@ -18,6 +18,7 @@ const useWindowsAudioState = () => {
         setAudioState(event.payload.windowsAudioState);
       });
       await invokeQuery({ kind: "AudioDict" });
+      await invokeQuery({ kind: "Channels" });
 
       console.log("initialized");
     };
