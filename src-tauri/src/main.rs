@@ -13,6 +13,7 @@ use anyhow::Result;
 use api::{
     error::{APIError, UnexpectedErr},
     init::{prepare_backend, setup, BackendPrepareRet, IPCHandlers},
+    quit,
 };
 
 #[derive(Clone, serde::Serialize)]
@@ -23,12 +24,10 @@ struct Payload {
 
 fn handle_window(event: tauri::GlobalWindowEvent) {
     match event.event() {
-        tauri::WindowEvent::CloseRequested { .. } => match event.window().label() {
-            "main" => {
-                exit(0);
-            }
-            _ => {}
-        },
+        tauri::WindowEvent::CloseRequested { .. } => {
+            let app = event.window().app_handle();
+            quit(app);
+        }
         _ => {}
     }
 }
@@ -87,7 +86,7 @@ async fn main() -> Result<()> {
         }))
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_context_menu::init())
-        .invoke_handler(tauri::generate_handler![query])
+        .invoke_handler(tauri::generate_handler![query, quit])
         .system_tray(create_task_tray())
         .on_window_event(handle_window)
         .on_system_tray_event(handle_system_tray)

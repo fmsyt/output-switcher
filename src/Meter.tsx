@@ -2,7 +2,7 @@ import VolumeMuteIcon from '@mui/icons-material/VolumeMute';
 import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import { Grid, IconButton, Slider, Stack, Typography } from "@mui/material";
-import { listen } from "@tauri-apps/api/event";
+import { UnlistenFn, listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/tauri";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import AppContext from "./AppContext";
@@ -31,6 +31,25 @@ export default function Meter(props: MeterProps) {
   const appContext = useContext(AppContext);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const sliderRef = useRef<HTMLSpanElement | null>(null);
+
+  useEffect(() => {
+
+    let unListen: UnlistenFn | undefined = undefined;
+
+    (async () => {
+      const unListenQuit = await listen("quit", () => invoke("quit"));
+
+      unListen = () => {
+        unListenQuit();
+      }
+
+    })();
+
+    return () => {
+      unListen && unListen();
+    }
+
+  }, [])
 
   useEffect(() => {
     const { addIgnoreDragTarget, removeIgnoreDragTarget } = appContext;
@@ -158,7 +177,11 @@ export default function Meter(props: MeterProps) {
 
     invoke("plugin:context_menu|show_context_menu", {
       pos: { x: e.clientX, y: e.clientY },
-      items,
+      items: [
+        ...items,
+        { is_separator: true },
+        { label: "Quit", event: "quit" }
+      ]
     });
 
 
