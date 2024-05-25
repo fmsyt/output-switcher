@@ -1,18 +1,29 @@
 mod device_changer;
 pub mod notifier;
 
+// https://qiita.com/benki/items/635867b654783da0322f
+
 use anyhow::Result;
-use std::sync::Arc;
+use std::{ffi::OsString, os::windows::ffi::OsStringExt, sync::Arc};
 use tokio::sync::mpsc::Sender;
-use windows::Win32::{
-    Devices::FunctionDiscovery::PKEY_Device_FriendlyName,
-    Media::Audio::{
-        eMultimedia, eRender, Endpoints::IAudioEndpointVolume, IAudioSessionManager2, IMMDevice,
-        IMMDeviceEnumerator, MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
-    },
-    System::Com::{
-        CoCreateInstance, CoInitialize, CoUninitialize,
-        StructuredStorage::PropVariantToStringAlloc, CLSCTX_ALL, STGM_READ,
+use windows::{
+    core::Interface,
+    Win32::{
+        Devices::FunctionDiscovery::PKEY_Device_FriendlyName,
+        Foundation::{CloseHandle, FALSE},
+        Media::Audio::{
+            eMultimedia, eRender, Endpoints::IAudioEndpointVolume, IAudioSessionControl,
+            IAudioSessionControl2, IAudioSessionManager2, IMMDevice, IMMDeviceEnumerator,
+            MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
+        },
+        System::{
+            Com::{
+                CoCreateInstance, CoInitialize, CoUninitialize,
+                StructuredStorage::PropVariantToStringAlloc, CLSCTX_ALL, STGM_READ,
+            },
+            ProcessStatus::GetModuleBaseNameW,
+            Threading::{OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ},
+        },
     },
 };
 
@@ -122,6 +133,8 @@ pub struct IMMAudioDevice {
 
     /// @see https://learn.microsoft.com/ja-jp/windows/win32/api/endpointvolume/nn-endpointvolume-iaudioendpointvolume
     pub(crate) endpoint_volume: IAudioEndpointVolume,
+
+    pub(crate) session_pids: Vec<u32>,
 }
 
 unsafe impl Send for IMMAudioDevice {}
@@ -133,32 +146,36 @@ impl IMMAudioDevice {
         let name = get_name_from_immdevice(&device)?;
 
         // https://learn.microsoft.com/ja-jp/windows/win32/api/mmdeviceapi/nf-mmdeviceapi-immdevice-activate
-        let volume: IAudioEndpointVolume = unsafe { device.Activate(CLSCTX_ALL, None)? };
+        // https://learn.microsoft.com/ja-jp/windows/win32/api/endpointvolume/nn-endpointvolume-iaudioendpointvolume
+        let endpoint_volume: IAudioEndpointVolume = unsafe { device.Activate(CLSCTX_ALL, None)? };
+
+        let mut session_pids = vec![];
 
         #[cfg(debug_assertions)]
         unsafe {
             let session_manager: IAudioSessionManager2 = device.Activate(CLSCTX_ALL, None)?;
+
             let sessions = session_manager.GetSessionEnumerator()?;
 
-            println!("{:?}", sessions.GetCount()?);
-
             for i in 0..sessions.GetCount()? {
-                let session = sessions.GetSession(i)?;
-                let name = session.GetDisplayName()?;
+                let session_control: IAudioSessionControl = sessions.GetSession(i)?;
+                let session_control2: IAudioSessionControl2 = session_control.cast().unwrap();
+                let process_id = session_control2.GetProcessId()?;
 
-                let state = session.GetState()?;
-                println!("{:?} {:?}", name.to_string()?, state);
+                session_pids.push(process_id);
             }
         }
 
-        is.notification_callbacks.register_to_volume(&volume)?;
+        is.notification_callbacks
+            .register_to_volume(&endpoint_volume)?;
 
         Ok(IMMAudioDevice {
             id,
             name,
             _device: device,
-            endpoint_volume: volume,
+            endpoint_volume,
             is,
+            session_pids,
         })
     }
 
@@ -210,4 +227,28 @@ impl Drop for IMMAudioDevice {
             .unregister_to_volume(&self.endpoint_volume)
             .unwrap();
     }
+}
+
+unsafe fn get_process_name_by_id(process_id: u32) -> Result<String> {
+    let try_process_handle = OpenProcess(
+        PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+        FALSE,
+        process_id,
+    );
+
+    if let Err(e) = try_process_handle {
+        return Err(anyhow::anyhow!("Failed to open process: {}", e));
+    }
+
+    let process_handle = try_process_handle.unwrap();
+
+    let mut buffer = [0; 1024];
+    let len = GetModuleBaseNameW(process_handle, None, &mut buffer);
+
+    let os_string = OsString::from_wide(&buffer[..len as usize]);
+    let process_name = os_string.to_string_lossy().into_owned();
+
+    CloseHandle(process_handle).unwrap();
+
+    Ok(process_name)
 }

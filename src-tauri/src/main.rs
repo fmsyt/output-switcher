@@ -96,8 +96,8 @@ async fn main() -> Result<()> {
 
             #[cfg(debug_assertions)]
             {
-                let main_window = app.get_window("main").unwrap();
-                main_window.open_devtools();
+                // let main_window = app.get_window("main").unwrap();
+                // main_window.open_devtools();
             }
 
             Ok(())
