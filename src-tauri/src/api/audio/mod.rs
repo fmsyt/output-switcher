@@ -4,7 +4,7 @@ pub mod notifier;
 // https://qiita.com/benki/items/635867b654783da0322f
 
 use anyhow::Result;
-use std::{ffi::OsString, os::windows::ffi::OsStringExt, sync::Arc};
+use std::{collections::HashMap, ffi::OsString, os::windows::ffi::OsStringExt, sync::Arc};
 use tokio::sync::mpsc::Sender;
 use windows::{
     core::Interface,
@@ -14,7 +14,7 @@ use windows::{
         Media::Audio::{
             eMultimedia, eRender, Endpoints::IAudioEndpointVolume, IAudioSessionControl,
             IAudioSessionControl2, IAudioSessionManager2, IMMDevice, IMMDeviceEnumerator,
-            MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
+            ISimpleAudioVolume, MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
         },
         System::{
             Com::{
@@ -134,7 +134,7 @@ pub struct IMMAudioDevice {
     /// @see https://learn.microsoft.com/ja-jp/windows/win32/api/endpointvolume/nn-endpointvolume-iaudioendpointvolume
     pub(crate) endpoint_volume: IAudioEndpointVolume,
 
-    pub(crate) session_pids: Vec<u32>,
+    pub(crate) session_control_map: HashMap<u32, IAudioSessionControl>,
 }
 
 unsafe impl Send for IMMAudioDevice {}
@@ -149,12 +149,10 @@ impl IMMAudioDevice {
         // https://learn.microsoft.com/ja-jp/windows/win32/api/endpointvolume/nn-endpointvolume-iaudioendpointvolume
         let endpoint_volume: IAudioEndpointVolume = unsafe { device.Activate(CLSCTX_ALL, None)? };
 
-        let mut session_pids = vec![];
+        let mut session_control_map: HashMap<u32, IAudioSessionControl> = HashMap::new();
 
-        #[cfg(debug_assertions)]
         unsafe {
             let session_manager: IAudioSessionManager2 = device.Activate(CLSCTX_ALL, None)?;
-
             let sessions = session_manager.GetSessionEnumerator()?;
 
             for i in 0..sessions.GetCount()? {
@@ -162,7 +160,32 @@ impl IMMAudioDevice {
                 let session_control2: IAudioSessionControl2 = session_control.cast().unwrap();
                 let process_id = session_control2.GetProcessId()?;
 
-                session_pids.push(process_id);
+                session_control_map.insert(process_id, session_control);
+
+                // let mut process_name = "Unknown".to_string();
+
+                // if process_id == 0 {
+                //     process_name = "System Sounds".to_string();
+                // } else if let Ok(name) = get_process_name_by_id(process_id) {
+                //     process_name = name;
+                // }
+
+                // let audio_volume: ISimpleAudioVolume = session_control.cast().unwrap();
+                // let mut volume = 0.0;
+                // let mut mute = false;
+
+                // if let Ok(v) = audio_volume.GetMasterVolume() {
+                //     volume = v;
+                // }
+
+                // if let Ok(m) = audio_volume.GetMute() {
+                //     mute = m.as_bool();
+                // }
+
+                // println!(
+                //     "Session: {} (PID: {}), Volume: {}, Mute: {}",
+                //     process_name, process_id, volume, mute
+                // );
             }
         }
 
@@ -175,8 +198,19 @@ impl IMMAudioDevice {
             _device: device,
             endpoint_volume,
             is,
-            session_pids,
+            session_control_map,
         })
+    }
+
+    pub(crate) fn get_session(&self, process_id: u32) -> Result<IAudioSessionControl> {
+        let session_control = self.session_control_map.get(&process_id).unwrap();
+        Ok(session_control.clone())
+    }
+
+    pub(crate) fn get_session_audio_volume(&self, process_id: u32) -> Result<ISimpleAudioVolume> {
+        let session_control = self.get_session(process_id)?;
+        let audio_volume: ISimpleAudioVolume = session_control.cast().unwrap();
+        Ok(audio_volume)
     }
 
     pub fn set_as_default(&self) -> Result<()> {
@@ -191,8 +225,22 @@ impl IMMAudioDevice {
         Ok(volume)
     }
 
+    pub fn get_session_volume(&self, process_id: u32) -> Result<f32> {
+        let audio_volume = self.get_session_audio_volume(process_id)?;
+        let volume = unsafe { audio_volume.GetMasterVolume()? };
+
+        Ok(volume)
+    }
+
     pub fn get_mute_state(&self) -> Result<bool> {
         let mute_state = unsafe { self.endpoint_volume.GetMute()?.as_bool() };
+
+        Ok(mute_state)
+    }
+
+    pub fn get_session_mute_state(&self, process_id: u32) -> Result<bool> {
+        let audio_volume = self.get_session_audio_volume(process_id)?;
+        let mute_state = unsafe { audio_volume.GetMute()?.as_bool() };
 
         Ok(mute_state)
     }
@@ -206,6 +254,15 @@ impl IMMAudioDevice {
         Ok(())
     }
 
+    pub fn set_session_volume(&self, process_id: u32, volume: f32) -> Result<()> {
+        let audio_volume = self.get_session_audio_volume(process_id)?;
+        unsafe {
+            audio_volume.SetMasterVolume(volume, std::ptr::null())?;
+        }
+
+        Ok(())
+    }
+
     pub fn set_mute_state(&self, mute_state: bool) -> Result<()> {
         unsafe {
             self.endpoint_volume.SetMute(mute_state, std::ptr::null())?;
@@ -214,9 +271,13 @@ impl IMMAudioDevice {
         Ok(())
     }
 
-    pub fn get_channels(&self) -> Result<u32> {
-        let channels = unsafe { self.endpoint_volume.GetChannelCount()? };
-        Ok(channels)
+    pub fn set_session_mute_state(&self, process_id: u32, mute_state: bool) -> Result<()> {
+        let audio_volume = self.get_session_audio_volume(process_id)?;
+        unsafe {
+            audio_volume.SetMute(mute_state, std::ptr::null())?;
+        }
+
+        Ok(())
     }
 }
 

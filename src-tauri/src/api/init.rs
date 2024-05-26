@@ -21,7 +21,6 @@ pub enum IPCHandlers {
     DefaultAudioChange { id: String },
     VolumeChange { id: String, volume: f32 },
     MuteStateChange { id: String, muted: bool },
-    Channels,
 }
 
 const RECEIVE_INTERVAL: Duration = Duration::from_millis(100);
@@ -189,27 +188,6 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                         // continue;
                     }
                 }
-                IPCHandlers::Channels => {
-                    let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
-                        inner: UnexpectedErr::LockError,
-                    })?;
-
-                    for (_, audio) in dict.iter() {
-                        let e = audio.get_channels().map_err(|e| APIError::SomethingWrong {
-                            msg: format!("@audio.get_channels {:?}", e),
-                        });
-
-                        let count = match e {
-                            Ok(count) => count,
-                            Err(e) => {
-                                println!("{:?}", e);
-                                continue;
-                            }
-                        };
-
-                        println!("{:?}", count);
-                    }
-                }
             }
         }
 
@@ -277,13 +255,13 @@ struct WindowsAudioState {
 
 impl WindowsAudioState {
     fn new(audio_dict: &AudioDict, default: String) -> Result<Self> {
-        let audios = audio_dict
+        let audio_device_list = audio_dict
             .values()
             .map(|a| AudioDeviceInfo::from_audio(a))
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self {
-            audio_device_list: audios,
+            audio_device_list,
             default,
         })
     }
@@ -303,19 +281,19 @@ async fn update_notifing_b2f(
     tx: &Sender<AudioStateChangePayload>,
 ) -> Result<()> {
     let default = is.get_default_audio_id()?;
-    let all_audio_info = {
+    let audio_state = {
         let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
             inner: UnexpectedErr::LockError,
         })?;
         WindowsAudioState::new(&dict, default)?
     };
 
-    let unb2f = AudioStateChangePayload {
-        windows_audio_state: all_audio_info,
+    let payload = AudioStateChangePayload {
+        windows_audio_state: audio_state,
         notification,
     };
 
-    tx.send(unb2f).await.map_err(|_| APIError::Unexpected {
+    tx.send(payload).await.map_err(|_| APIError::Unexpected {
         inner: UnexpectedErr::MPSCClosedError,
     })?;
 
