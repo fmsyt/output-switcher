@@ -151,6 +151,7 @@ impl IMMAudioDevice {
 
         let mut session_control_map: HashMap<u32, IAudioSessionControl> = HashMap::new();
 
+        #[cfg(debug_assertions)]
         unsafe {
             let session_manager: IAudioSessionManager2 = device.Activate(CLSCTX_ALL, None)?;
             let sessions = session_manager.GetSessionEnumerator()?;

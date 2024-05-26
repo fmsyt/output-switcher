@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-pub mod api;
+pub mod ipc;
 
 use std::process::exit;
 use tauri::{
@@ -10,7 +10,7 @@ use tauri::{
 };
 
 use anyhow::Result;
-use api::{
+use ipc::{
     error::{APIError, UnexpectedErr},
     init::{prepare_backend, setup, BackendPrepareRet, IPCHandlers},
     quit,

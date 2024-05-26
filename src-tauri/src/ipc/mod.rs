@@ -4,6 +4,7 @@ use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 pub mod audio;
 pub mod error;
 pub mod init;
+pub mod sender;
 
 #[tauri::command]
 pub fn quit(app: AppHandle) {
