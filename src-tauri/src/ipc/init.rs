@@ -9,6 +9,7 @@ use tokio::time::{timeout, Duration};
 use super::{
     audio::{notifier::Notification, IMMAudioDevice, Singleton},
     error::*,
+    sender::{ipc_sender, AudioStateChangePayload},
 };
 
 type AudioDict = BTreeMap<String, IMMAudioDevice>;
@@ -21,7 +22,6 @@ pub enum IPCHandlers {
     DefaultAudioChange { id: String },
     VolumeChange { id: String, volume: f32 },
     MuteStateChange { id: String, muted: bool },
-    Channels,
 }
 
 const RECEIVE_INTERVAL: Duration = Duration::from_millis(100);
@@ -29,16 +29,16 @@ const RECEIVE_INTERVAL: Duration = Duration::from_millis(100);
 pub struct BackendPrepareRet {
     pub relay_thread: JoinHandle<Result<()>>,
     pub backend_thread: JoinHandle<Result<(), APIError>>,
-    pub query_tx: Sender<IPCHandlers>,
-    pub frontend_update_rx: Receiver<AudioStateChangePayload>,
+    pub ipc_tx: Sender<IPCHandlers>,
+    pub ipc_rx: Receiver<AudioStateChangePayload>,
 }
 
 pub async fn prepare_backend() -> Result<BackendPrepareRet> {
     let (backend_update_tx, mut backend_update_rx) = channel(256);
-    let (frontend_update_tx, frontend_update_rx) = channel(256);
-    let (query_tx, mut query_rx) = channel(256);
+    let (frontend_update_tx, ipc_rx) = channel(256);
+    let (ipc_tx, mut query_rx) = channel(256);
 
-    let qt = query_tx.clone();
+    let qt = ipc_tx.clone();
     let relay_thread = tokio::spawn(async move {
         while let Some(mut notification) = backend_update_rx.recv().await {
             loop {
@@ -84,13 +84,8 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                                 msg: format!("@get_audio_dict {:?}", e),
                             })?;
                     }
-                    let e = update_notifing_b2f(
-                        &is,
-                        &audio_dict,
-                        Some(notification),
-                        &frontend_update_tx,
-                    )
-                    .await;
+                    let e =
+                        ipc_sender(&is, &audio_dict, Some(notification), &frontend_update_tx).await;
 
                     if let Err(e) = e {
                         log::error!("{:?}", e);
@@ -98,7 +93,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                     }
                 }
                 IPCHandlers::AudioDict => {
-                    let e = update_notifing_b2f(&is, &audio_dict, None, &frontend_update_tx).await;
+                    let e = ipc_sender(&is, &audio_dict, None, &frontend_update_tx).await;
 
                     if let Err(e) = e {
                         log::error!("update_notifing_b2f {:?}", e);
@@ -189,27 +184,6 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                         // continue;
                     }
                 }
-                IPCHandlers::Channels => {
-                    let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
-                        inner: UnexpectedErr::LockError,
-                    })?;
-
-                    for (_, audio) in dict.iter() {
-                        let e = audio.get_channels().map_err(|e| APIError::SomethingWrong {
-                            msg: format!("@audio.get_channels {:?}", e),
-                        });
-
-                        let count = match e {
-                            Ok(count) => count,
-                            Err(e) => {
-                                println!("{:?}", e);
-                                continue;
-                            }
-                        };
-
-                        println!("{:?}", count);
-                    }
-                }
             }
         }
 
@@ -219,8 +193,8 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
     Ok(BackendPrepareRet {
         relay_thread,
         backend_thread,
-        query_tx,
-        frontend_update_rx,
+        ipc_tx,
+        ipc_rx,
     })
 }
 
@@ -247,77 +221,4 @@ fn get_audio_dictionary(is: &Arc<Singleton>) -> Result<AudioDict> {
         .collect();
 
     Ok(res)
-}
-
-#[derive(serde::Serialize, Debug, Clone)]
-struct AudioDeviceInfo {
-    id: String,
-    name: String,
-    volume: f32,
-    muted: bool,
-}
-
-impl AudioDeviceInfo {
-    fn from_audio(audio: &IMMAudioDevice) -> Result<Self> {
-        Ok(Self {
-            id: audio.id.clone(),
-            name: audio.name.clone(),
-            volume: audio.get_volume()?,
-            muted: audio.get_mute_state()?,
-        })
-    }
-}
-
-#[derive(serde::Serialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-struct WindowsAudioState {
-    audio_device_list: Vec<AudioDeviceInfo>,
-    default: String,
-}
-
-impl WindowsAudioState {
-    fn new(audio_dict: &AudioDict, default: String) -> Result<Self> {
-        let audios = audio_dict
-            .values()
-            .map(|a| AudioDeviceInfo::from_audio(a))
-            .collect::<Result<Vec<_>>>()?;
-
-        Ok(Self {
-            audio_device_list: audios,
-            default,
-        })
-    }
-}
-
-#[derive(serde::Serialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct AudioStateChangePayload {
-    windows_audio_state: WindowsAudioState,
-    notification: Option<Notification>,
-}
-
-async fn update_notifing_b2f(
-    is: &Arc<Singleton>,
-    audio_dict: &Arc<Mutex<AudioDict>>,
-    notification: Option<Notification>,
-    tx: &Sender<AudioStateChangePayload>,
-) -> Result<()> {
-    let default = is.get_default_audio_id()?;
-    let all_audio_info = {
-        let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
-            inner: UnexpectedErr::LockError,
-        })?;
-        WindowsAudioState::new(&dict, default)?
-    };
-
-    let unb2f = AudioStateChangePayload {
-        windows_audio_state: all_audio_info,
-        notification,
-    };
-
-    tx.send(unb2f).await.map_err(|_| APIError::Unexpected {
-        inner: UnexpectedErr::MPSCClosedError,
-    })?;
-
-    Ok(())
 }

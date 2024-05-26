@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-pub mod api;
+pub mod ipc;
 
 use std::process::exit;
 use tauri::{
@@ -10,7 +10,7 @@ use tauri::{
 };
 
 use anyhow::Result;
-use api::{
+use ipc::{
     error::{APIError, UnexpectedErr},
     init::{prepare_backend, setup, BackendPrepareRet, IPCHandlers},
     quit,
@@ -74,8 +74,8 @@ async fn main() -> Result<()> {
     let BackendPrepareRet {
         relay_thread,
         backend_thread,
-        query_tx,
-        frontend_update_rx,
+        ipc_tx,
+        ipc_rx,
     } = prepare_backend().await?;
 
     tauri::Builder::default()
@@ -90,14 +90,14 @@ async fn main() -> Result<()> {
         .system_tray(create_task_tray())
         .on_window_event(handle_window)
         .on_system_tray_event(handle_system_tray)
-        .manage(query_tx)
+        .manage(ipc_tx)
         .setup(|app| {
-            setup(app, frontend_update_rx);
+            setup(app, ipc_rx);
 
             #[cfg(debug_assertions)]
             {
-                let main_window = app.get_window("main").unwrap();
-                main_window.open_devtools();
+                // let main_window = app.get_window("main").unwrap();
+                // main_window.open_devtools();
             }
 
             Ok(())

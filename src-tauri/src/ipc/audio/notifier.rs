@@ -47,6 +47,11 @@ pub enum Notification {
         volume: f32,
         muted: bool,
     },
+    SessionVolumeChanged {
+        id: String,
+        volume: f32,
+        muted: bool,
+    },
 }
 
 #[implement(IMMNotificationClient)]
