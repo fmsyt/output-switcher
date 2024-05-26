@@ -74,8 +74,8 @@ async fn main() -> Result<()> {
     let BackendPrepareRet {
         relay_thread,
         backend_thread,
-        query_tx,
-        frontend_update_rx,
+        ipc_tx,
+        ipc_rx,
     } = prepare_backend().await?;
 
     tauri::Builder::default()

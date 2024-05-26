@@ -28,16 +28,16 @@ const RECEIVE_INTERVAL: Duration = Duration::from_millis(100);
 pub struct BackendPrepareRet {
     pub relay_thread: JoinHandle<Result<()>>,
     pub backend_thread: JoinHandle<Result<(), APIError>>,
-    pub query_tx: Sender<IPCHandlers>,
-    pub frontend_update_rx: Receiver<AudioStateChangePayload>,
+    pub ipc_tx: Sender<IPCHandlers>,
+    pub ipc_rx: Receiver<AudioStateChangePayload>,
 }
 
 pub async fn prepare_backend() -> Result<BackendPrepareRet> {
     let (backend_update_tx, mut backend_update_rx) = channel(256);
-    let (frontend_update_tx, frontend_update_rx) = channel(256);
-    let (query_tx, mut query_rx) = channel(256);
+    let (frontend_update_tx, ipc_rx) = channel(256);
+    let (ipc_tx, mut query_rx) = channel(256);
 
-    let qt = query_tx.clone();
+    let qt = ipc_tx.clone();
     let relay_thread = tokio::spawn(async move {
         while let Some(mut notification) = backend_update_rx.recv().await {
             loop {
@@ -83,13 +83,8 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                                 msg: format!("@get_audio_dict {:?}", e),
                             })?;
                     }
-                    let e = update_notifing_b2f(
-                        &is,
-                        &audio_dict,
-                        Some(notification),
-                        &frontend_update_tx,
-                    )
-                    .await;
+                    let e =
+                        ipc_sender(&is, &audio_dict, Some(notification), &frontend_update_tx).await;
 
                     if let Err(e) = e {
                         log::error!("{:?}", e);
@@ -97,7 +92,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                     }
                 }
                 IPCHandlers::AudioDict => {
-                    let e = update_notifing_b2f(&is, &audio_dict, None, &frontend_update_tx).await;
+                    let e = ipc_sender(&is, &audio_dict, None, &frontend_update_tx).await;
 
                     if let Err(e) = e {
                         log::error!("update_notifing_b2f {:?}", e);
@@ -197,8 +192,8 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
     Ok(BackendPrepareRet {
         relay_thread,
         backend_thread,
-        query_tx,
-        frontend_update_rx,
+        ipc_tx,
+        ipc_rx,
     })
 }
 
@@ -274,7 +269,7 @@ pub struct AudioStateChangePayload {
     notification: Option<Notification>,
 }
 
-async fn update_notifing_b2f(
+async fn ipc_sender(
     is: &Arc<Singleton>,
     audio_dict: &Arc<Mutex<AudioDict>>,
     notification: Option<Notification>,
