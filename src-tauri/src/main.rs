@@ -90,9 +90,9 @@ async fn main() -> Result<()> {
         .system_tray(create_task_tray())
         .on_window_event(handle_window)
         .on_system_tray_event(handle_system_tray)
-        .manage(query_tx)
+        .manage(ipc_tx)
         .setup(|app| {
-            setup(app, frontend_update_rx);
+            setup(app, ipc_rx);
 
             #[cfg(debug_assertions)]
             {
