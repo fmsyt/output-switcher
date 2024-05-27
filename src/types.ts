@@ -10,6 +10,10 @@ export interface WindowsAudioState {
   audioDeviceList: AudioDeviceInfo[];
 }
 
+export interface AudioSessionInfo extends AudioDeviceInfo {
+  icon: string | null;
+}
+
 
 const eventNames = [
   "DefaultDeviceChanged",
@@ -49,6 +53,7 @@ export type Notify = | DefaultDeviceChanged | DeviceAdded | DeviceRemoved | Devi
 export interface AudioStateChangePayload {
   windowsAudioState: WindowsAudioState;
   notification?: Notify;
+  // audioSessions: AudioSessionInfo[];
 }
 
 

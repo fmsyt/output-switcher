@@ -160,6 +160,15 @@ impl IMMAudioDevice {
                 let session_control: IAudioSessionControl = sessions.GetSession(i)?;
                 let session_control2: IAudioSessionControl2 = session_control.cast().unwrap();
                 let process_id = session_control2.GetProcessId()?;
+                let identifier = session_control2.GetSessionIdentifier()?.to_string()?;
+                let i2 = session_control2
+                    .GetSessionInstanceIdentifier()?
+                    .to_string()?;
+
+                println!(
+                    "Session: {} (PID: {}), Identifier: {}, Instance Identifier: {}",
+                    name, process_id, identifier, i2
+                );
 
                 session_control_map.insert(process_id, session_control);
 
