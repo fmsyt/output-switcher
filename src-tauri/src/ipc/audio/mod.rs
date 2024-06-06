@@ -300,7 +300,11 @@ impl Drop for IMMAudioDevice {
     }
 }
 
-unsafe fn get_process_name_by_id(process_id: u32) -> Result<String> {
+pub unsafe fn get_process_name_by_id(process_id: u32) -> Result<String> {
+    if process_id == 0 {
+        return Ok("System".to_string());
+    }
+
     let try_process_handle = OpenProcess(
         PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
         FALSE,
@@ -308,7 +312,12 @@ unsafe fn get_process_name_by_id(process_id: u32) -> Result<String> {
     );
 
     if let Err(e) = try_process_handle {
-        return Err(anyhow::anyhow!("Failed to open process: {}", e));
+        println!("Failed to open process (PID: {}): {:?}", process_id, e);
+        return Err(anyhow::anyhow!(
+            "Failed to open process (PID: {}): {:?}",
+            process_id,
+            e
+        ));
     }
 
     let process_handle = try_process_handle.unwrap();
