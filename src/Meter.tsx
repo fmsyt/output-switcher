@@ -1,13 +1,17 @@
+import { Fragment } from "react";
+
 import VolumeMuteIcon from '@mui/icons-material/VolumeMute';
 import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
-import { Grid, IconButton, Slider, Stack, Typography } from "@mui/material";
+import { Grid, IconButton, Slider, Typography } from "@mui/material";
 import { UnlistenFn, listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/tauri";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import AppContext from "./AppContext";
 import { QueryKind, invokeQuery } from "./ipc";
 import { MeterProps } from "./types";
+
+import TerminalIcon from '@mui/icons-material/Terminal';
 
 const volumeStep = 0.01;
 
@@ -206,7 +210,7 @@ export default function Meter(props: MeterProps) {
     <Grid
       container
       display="grid"
-      gridTemplateColumns={"max-content 1fr"}
+      gridTemplateColumns={"max-content 1fr 2em"}
       gridTemplateRows={"repeat(2, auto)"}
       alignItems="center"
       ref={scrollAreaRef}
@@ -224,33 +228,50 @@ export default function Meter(props: MeterProps) {
         variant="body1"
         component="div"
         width="100%"
+        sx={{ gridColumn: 2 }}
         noWrap
       >
         {device.name}
       </Typography>
 
-      <div></div>
 
-      <Stack
-        direction="row"
-        alignItems="center"
-        spacing={2}
-      >
-        <Slider
-          value={volume}
-          onMouseDown={(e) => e.stopPropagation()}
-          onChange={handleChangeVolume}
-          min={0}
-          max={1}
-          step={volumeStep}
-          disabled={muted}
-          size="small"
-          ref={sliderRef}
-        />
-        <Typography variant="body1" textAlign="center" width="2em">
-          {displayVolume(volume)}
-        </Typography>
-      </Stack>
+      <Slider
+        value={volume}
+        onMouseDown={(e) => e.stopPropagation()}
+        onChange={handleChangeVolume}
+        min={0}
+        max={1}
+        step={volumeStep}
+        disabled={muted}
+        size="small"
+        ref={sliderRef}
+        sx={{ gridColumn: 2 }}
+      />
+      <Typography variant="body1" textAlign="center">
+        {displayVolume(volume)}
+      </Typography>
+
+      {device?.sessions.map((session) => (
+        <Fragment key={session.id}>
+          <IconButton
+            size="small"
+          >
+            <TerminalIcon />
+          </IconButton>
+
+          <Slider
+            value={session.volume}
+            min={0}
+            max={1}
+            size="small"
+            disabled={muted || session.muted}
+            step={volumeStep}
+          />
+          <Typography variant="body1" textAlign="center">
+            {displayVolume(session.volume)}
+          </Typography>
+        </Fragment>
+      ))}
 
     </Grid>
   )

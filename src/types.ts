@@ -11,7 +11,7 @@ export interface WindowsAudioState {
   audioDeviceList: AudioDeviceInfo[];
 }
 
-export interface AudioSessionInfo extends AudioDeviceInfo {
+export interface AudioSessionInfo extends Omit<AudioDeviceInfo, "sessions"> {
   icon: string | null;
 }
 
