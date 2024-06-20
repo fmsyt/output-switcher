@@ -212,6 +212,7 @@ export default function Meter(props: MeterProps) {
       display="grid"
       gridTemplateColumns={"max-content 1fr 2em"}
       gridTemplateRows={"repeat(2, auto)"}
+      gap={1}
       alignItems="center"
       ref={scrollAreaRef}
     >
@@ -228,7 +229,7 @@ export default function Meter(props: MeterProps) {
         variant="body1"
         component="div"
         width="100%"
-        sx={{ gridColumn: 2 }}
+        sx={{ gridColumn: "span 2" }}
         noWrap
       >
         {device.name}
