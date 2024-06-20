@@ -108,6 +108,10 @@ export default function Meter(props: MeterProps) {
       return;
     }
 
+    if (muted) {
+      return;
+    }
+
     event.preventDefault();
     event.stopPropagation();
 
@@ -124,7 +128,7 @@ export default function Meter(props: MeterProps) {
     })
 
 
-  }, [invokeChangeVolume]);
+  }, [invokeChangeVolume, muted]);
 
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
