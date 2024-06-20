@@ -3,6 +3,7 @@ export interface AudioDeviceInfo {
   name: string;
   volume: number;
   muted: boolean;
+  sessions: AudioSessionInfo[];
 }
 
 export interface WindowsAudioState {
