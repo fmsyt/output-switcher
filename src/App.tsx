@@ -39,11 +39,11 @@ function App() {
     const mainWindow = getCurrent();
     mainWindow.setSize(physicalSize);
 
-    const minSize = new LogicalSize(64, physicalSize.height);
-    const maxSize = new LogicalSize(physicalSize.width, physicalSize.height);
+    // const minSize = new LogicalSize(64, physicalSize.height);
+    // const maxSize = new LogicalSize(physicalSize.width, physicalSize.height);
 
-    mainWindow.setMinSize(minSize);
-    mainWindow.setMaxSize(maxSize);
+    // mainWindow.setMinSize(minSize);
+    // mainWindow.setMaxSize(maxSize);
 
     const handler = async (e: MouseEvent) => {
 

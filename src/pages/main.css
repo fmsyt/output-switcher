@@ -15,7 +15,3 @@ body {
     user-select: none;
     cursor: default;
 }
-
-* {
-    outline: olive;
-}
