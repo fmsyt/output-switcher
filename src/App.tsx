@@ -1,11 +1,11 @@
 import { Card, CardContent, CircularProgress, CssBaseline, Stack } from "@mui/material";
-import { window as tauriWindow } from "@tauri-apps/api";
-import { LogicalSize, getCurrent } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import AppContext from "./AppContext";
 import Meter from "./Meter";
 import ThemeProvider from "./ThemeProvider";
 import useWindowsAudioState from "./useWindowsAudioState";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { LogicalSize } from "@tauri-apps/api/dpi";
 
 function App() {
 
@@ -36,7 +36,7 @@ function App() {
 
     const physicalSize = new LogicalSize(width, height);
 
-    const mainWindow = getCurrent();
+    const mainWindow = getCurrentWebviewWindow();
     mainWindow.setSize(physicalSize);
 
     const minSize = new LogicalSize(64, physicalSize.height);
@@ -51,7 +51,7 @@ function App() {
         return;
       }
 
-      await tauriWindow.appWindow.startDragging();
+      mainWindow.startDragging();
     }
 
     cardRef.current.addEventListener("mousedown", (handler));

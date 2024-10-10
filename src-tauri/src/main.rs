@@ -3,10 +3,12 @@
 
 pub mod ipc;
 
-use std::process::exit;
 use tauri::{
-    async_runtime::Sender, AppHandle, CustomMenuItem, Manager, State, SystemTray, SystemTrayEvent,
-    SystemTrayMenu,
+    async_runtime::Sender,
+    image::Image,
+    menu::{MenuBuilder, MenuItemBuilder},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Manager, State,
 };
 
 use anyhow::Result;
@@ -15,49 +17,8 @@ use ipc::{
     init::{prepare_backend, setup, BackendPrepareRet, IPCHandlers},
     quit,
 };
+use tauri_plugin_dialog::DialogExt;
 
-#[derive(Clone, serde::Serialize)]
-struct Payload {
-    args: Vec<String>,
-    cwd: String,
-}
-
-fn handle_window(event: tauri::GlobalWindowEvent) {
-    match event.event() {
-        tauri::WindowEvent::CloseRequested { .. } => {
-            let app = event.window().app_handle();
-            quit(app);
-        }
-        _ => {}
-    }
-}
-
-fn create_task_tray() -> SystemTray {
-    let quit = CustomMenuItem::new("quit".to_string(), "終了");
-
-    let tray = SystemTrayMenu::new().add_item(quit);
-    let system_tray = SystemTray::new().with_menu(tray);
-
-    system_tray
-}
-
-fn handle_system_tray(app: &AppHandle, event: SystemTrayEvent) {
-    match event {
-        SystemTrayEvent::LeftClick { .. } => {
-            let window = app.get_window("main").unwrap();
-
-            window.show().unwrap();
-            window.set_focus().unwrap();
-        }
-        SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
-            "quit" => {
-                exit(0);
-            }
-            _ => {}
-        },
-        _ => {}
-    }
-}
 
 #[tauri::command]
 async fn query(tx: State<'_, Sender<IPCHandlers>>, query: IPCHandlers) -> Result<(), APIError> {
@@ -79,20 +40,63 @@ async fn main() -> Result<()> {
     } = prepare_backend().await?;
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
-            println!("{}, {argv:?}, {cwd}", app.package_info().name);
-            app.emit_all("single-instance", Payload { args: argv, cwd })
-                .unwrap();
-        }))
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin(tauri_plugin_context_menu::init())
         .invoke_handler(tauri::generate_handler![query, quit])
-        .system_tray(create_task_tray())
-        .on_window_event(handle_window)
-        .on_system_tray_event(handle_system_tray)
         .manage(ipc_tx)
         .setup(|app| {
             setup(app, ipc_rx);
+
+            let quit_menu = MenuItemBuilder::with_id("quit", "終了").build(app)?;
+            let version_menu = MenuItemBuilder::with_id("version", "バージョン情報").build(app)?;
+
+            let menu = MenuBuilder::new(app)
+                .item(&version_menu)
+                .item(&quit_menu)
+                .build()?;
+
+            let tray = TrayIconBuilder::new()
+                .menu(&menu)
+                .on_menu_event(move |app, event| match event.id().as_ref() {
+                    "quit" => {
+                        let app = app.clone();
+                        quit(app);
+                    }
+                    "version" => {
+                        let message = format!(
+                            "{} v{}",
+                            app.package_info().name,
+                            app.package_info().version
+                        );
+
+                        app.dialog()
+                            .message(message)
+                            .title("バージョン情報")
+                            .blocking_show();
+                    }
+                    _ => (),
+                })
+                .on_tray_icon_event(move |tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        let app = tray.app_handle();
+                        if let Some(webview_window) = app.get_webview_window("main") {
+                            let _ = webview_window.show();
+                            let _ = webview_window.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+
+            let icon = include_bytes!("../icons/icon.ico").to_vec();
+            let image = Image::from_bytes(&icon).expect("Failed to load icon image");
+
+            tray.set_icon(Some(image)).expect("Failed to set tray icon");
 
             #[cfg(debug_assertions)]
             {

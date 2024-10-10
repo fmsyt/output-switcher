@@ -3,7 +3,7 @@ import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import { Grid, IconButton, Slider, Stack, Typography } from "@mui/material";
 import { UnlistenFn, listen } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/tauri";
+import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import AppContext from "./AppContext";
 import { QueryKind, invokeQuery } from "./ipc";
@@ -164,29 +164,32 @@ export default function Meter(props: MeterProps) {
 
   const handleContextMenu = useCallback((e: MouseEvent) => {
 
-    if (!deviceList) {
-      return;
-    }
+    // TODO: migrate to context menu API
+    return;
 
-    e.preventDefault();
+    // if (!deviceList) {
+    //   return;
+    // }
 
-    const event: QueryKind = "DefaultAudioChange";
+    // e.preventDefault();
 
-    const items = deviceList.map((d) => ({
-      label: d.name,
-      event,
-      payload: d.id,
-      checked: d.id === device.id,
-    }));
+    // const event: QueryKind = "DefaultAudioChange";
 
-    invoke("plugin:context_menu|show_context_menu", {
-      pos: { x: e.clientX, y: e.clientY },
-      items: [
-        ...items,
-        { is_separator: true },
-        { label: "Quit", event: "quit" }
-      ]
-    });
+    // const items = deviceList.map((d) => ({
+    //   label: d.name,
+    //   event,
+    //   payload: d.id,
+    //   checked: d.id === device.id,
+    // }));
+
+    // invoke("plugin:context_menu|show_context_menu", {
+    //   pos: { x: e.clientX, y: e.clientY },
+    //   items: [
+    //     ...items,
+    //     { is_separator: true },
+    //     { label: "Quit", event: "quit" }
+    //   ]
+    // });
 
 
   }, [device, deviceList]);

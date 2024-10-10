@@ -8,7 +8,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "1", features = [] }
+tauri-build = { version = "2", features = [] }
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -18,22 +18,15 @@ tokio = { version = "1.37.0", features = ["full"] }
 anyhow = "1.0.81"
 thiserror = "1.0.58"
 windows-interface = "0.53.0"
-tauri-plugin-context-menu = "0.7.1"
-tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
-tauri-plugin-window-state = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
+# tauri-plugin-context-menu = "0.7.1"
+tauri-plugin-single-instance = { version = "2" }
+tauri-plugin-window-state = { version = "2" }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
 
 [dependencies.tauri]
-version = "1"
-features = [
-    "window-set-min-size",
-    "window-set-max-size",
-    "window-set-size",
-    "system-tray",
-    "window-set-decorations",
-    "window-start-dragging",
-    "window-set-always-on-top",
-    "shell-open",
-]
+version = "2"
+features = ["image-ico", "image-png", "tray-icon"]
 
 [dependencies.windows]
 version = "0.54.0"

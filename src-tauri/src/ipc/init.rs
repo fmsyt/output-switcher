@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
-use tauri::{App, Manager, Wry};
+use tauri::{App, Emitter, Manager, Wry};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::task::JoinHandle;
 use tokio::time::{timeout, Duration};
@@ -199,7 +199,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
 }
 
 pub fn setup(app: &mut App<Wry>, mut rx: Receiver<AudioStateChangePayload>) -> JoinHandle<()> {
-    let main_window = app.get_window("main").unwrap();
+    let main_window = app.get_webview_window("main").unwrap();
 
     let mw = main_window.clone();
     let notification_thread = tokio::spawn(async move {
