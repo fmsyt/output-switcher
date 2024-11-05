@@ -3,6 +3,7 @@ export interface AudioDeviceInfo {
   name: string;
   volume: number;
   muted: boolean;
+  sessions: AudioSessionInfo[];
 }
 
 export interface WindowsAudioState {
@@ -10,6 +11,9 @@ export interface WindowsAudioState {
   audioDeviceList: AudioDeviceInfo[];
 }
 
+export interface AudioSessionInfo extends AudioDeviceInfo {
+  icon: string | null;
+}
 
 const eventNames = [
   "DefaultDeviceChanged",
