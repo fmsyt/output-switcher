@@ -6,8 +6,9 @@ import { UnlistenFn, listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import AppContext from "./AppContext";
-import { QueryKind, invokeQuery } from "./ipc";
+import { invokeQuery } from "./ipc";
 import { MeterProps } from "./types";
+import useRegisterContextMenu from './useRegisterContextMenu';
 
 const volumeStep = 0.01;
 
@@ -162,37 +163,7 @@ export default function Meter(props: MeterProps) {
 
 
 
-  const handleContextMenu = useCallback((e: MouseEvent) => {
-
-    // TODO: migrate to context menu API
-    return;
-
-    // if (!deviceList) {
-    //   return;
-    // }
-
-    // e.preventDefault();
-
-    // const event: QueryKind = "DefaultAudioChange";
-
-    // const items = deviceList.map((d) => ({
-    //   label: d.name,
-    //   event,
-    //   payload: d.id,
-    //   checked: d.id === device.id,
-    // }));
-
-    // invoke("plugin:context_menu|show_context_menu", {
-    //   pos: { x: e.clientX, y: e.clientY },
-    //   items: [
-    //     ...items,
-    //     { is_separator: true },
-    //     { label: "Quit", event: "quit" }
-    //   ]
-    // });
-
-
-  }, [device, deviceList]);
+  const handleContextMenu = useRegisterContextMenu({ device, deviceList });
 
   useEffect(() => {
     window.addEventListener("contextmenu", handleContextMenu);
