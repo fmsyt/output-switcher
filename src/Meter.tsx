@@ -2,12 +2,12 @@ import VolumeMuteIcon from '@mui/icons-material/VolumeMute';
 import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import { Grid, IconButton, Slider, Stack, Typography } from "@mui/material";
-import { UnlistenFn, listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { type UnlistenFn, listen } from "@tauri-apps/api/event";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import AppContext from "./AppContext";
 import { invokeQuery } from "./ipc";
-import { MeterProps } from "./types";
+import type { MeterProps } from "./types";
 import useRegisterContextMenu from './useRegisterContextMenu';
 
 const volumeStep = 0.01;

@@ -1,11 +1,11 @@
 import { Card, CardContent, CircularProgress, CssBaseline, Stack } from "@mui/material";
+import { LogicalSize } from "@tauri-apps/api/dpi";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import AppContext from "./AppContext";
 import Meter from "./Meter";
 import ThemeProvider from "./ThemeProvider";
 import useWindowsAudioState from "./useWindowsAudioState";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { LogicalSize } from "@tauri-apps/api/dpi";
 
 function App() {
 

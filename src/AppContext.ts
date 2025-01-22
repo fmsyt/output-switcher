@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import { AppContextValue } from "./types";
+import type { AppContextValue } from "./types";
 
 const AppContext = createContext<AppContextValue>({
   addIgnoreDragTarget: () => {

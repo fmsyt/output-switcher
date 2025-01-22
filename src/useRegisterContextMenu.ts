@@ -2,8 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { CheckMenuItem, Menu, MenuItem } from "@tauri-apps/api/menu";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useCallback } from "react";
-import { QueryKind, invokeQuery } from "./ipc";
-import { AudioDeviceInfo } from "./types";
+import { type QueryKind, invokeQuery } from "./ipc";
+import type { AudioDeviceInfo } from "./types";
 
 type Props = {
   device: AudioDeviceInfo;

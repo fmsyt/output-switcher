@@ -1,10 +1,10 @@
-import { createTheme, ThemeProvider as MuiThemeProvider, useMediaQuery } from "@mui/material";
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import { ThemeProvider as MuiThemeProvider, createTheme, useMediaQuery } from "@mui/material";
+import { type UnlistenFn, listen } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { useEffect, useMemo, useState } from "react";
 
+import type { Theme } from "@tauri-apps/api/window";
 import ThemeContext from "./ThemeContext";
-import { Theme } from "@tauri-apps/api/window";
 const appWindow = getCurrentWebviewWindow()
 
 interface ThemeProviderProps {
