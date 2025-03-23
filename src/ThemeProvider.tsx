@@ -39,7 +39,7 @@ const ThemeProvider: React.FC<ThemeProviderProps> = (props) => {
     })();
 
     return () => {
-      unlisten && unlisten();
+      unlisten?.();
     };
   }, []);
 
@@ -51,7 +51,6 @@ const ThemeProvider: React.FC<ThemeProviderProps> = (props) => {
         return false;
       case "dark":
         return true;
-      case "system":
       default:
         if (systemTheme == null) {
           return prefersDarkMode;

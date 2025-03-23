@@ -64,6 +64,8 @@ function App() {
 
   const audioState = useWindowsAudioState();
 
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const defaultDevice = useMemo(() => {
     if (!audioState) {
       return null;
@@ -72,6 +74,7 @@ function App() {
     return audioState.audioDeviceList.find(device => device.id === audioState.default);
   }, [audioState?.default]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const getVolume = useCallback((deviceId: string) => {
 
     if (!audioState) {

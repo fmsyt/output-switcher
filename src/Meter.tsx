@@ -47,7 +47,7 @@ export default function Meter(props: MeterProps) {
     })();
 
     return () => {
-      unListen && unListen();
+      unListen?.();
     }
 
   }, [])
@@ -75,7 +75,7 @@ export default function Meter(props: MeterProps) {
 
   const handlerIdRef = useRef<number | null>(null);
   const invokeChangeVolume = useCallback(async (volume: number) => {
-    if (!device) {
+    if (!device?.id) {
       return;
     }
 
@@ -104,10 +104,6 @@ export default function Meter(props: MeterProps) {
   }, [invokeChangeVolume])
 
   const handleWheel = useCallback((event: WheelEvent) => {
-
-    if (!device) {
-      return;
-    }
 
     if (muted) {
       return;
@@ -203,7 +199,7 @@ export default function Meter(props: MeterProps) {
         {device.name}
       </Typography>
 
-      <div></div>
+      <div />
 
       <Stack
         direction="row"
