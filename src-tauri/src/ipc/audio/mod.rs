@@ -280,6 +280,59 @@ impl IMMAudioDevice {
 
         Ok(())
     }
+
+    /// プロセスIDからプロセス名を取得します
+    pub fn get_process_name(&self, process_id: u32) -> Result<String> {
+        unsafe { get_process_name_by_id(process_id) }
+    }
+
+    /// セッションごとの音量を取得します
+    pub fn get_session_volume_by_name(&self, process_name: &str) -> Result<f32> {
+        for (&pid, _) in &self.session_control_map {
+            if let Ok(name) = self.get_process_name(pid) {
+                if name == process_name {
+                    return self.get_session_volume(pid);
+                }
+            }
+        }
+        Err(anyhow::anyhow!("Process not found: {}", process_name))
+    }
+
+    /// セッションごとの音量を設定します
+    pub fn set_session_volume_by_name(&self, process_name: &str, volume: f32) -> Result<()> {
+        for (&pid, _) in &self.session_control_map {
+            if let Ok(name) = self.get_process_name(pid) {
+                if name == process_name {
+                    return self.set_session_volume(pid, volume);
+                }
+            }
+        }
+        Err(anyhow::anyhow!("Process not found: {}", process_name))
+    }
+
+    /// セッションごとのミュート状態を取得します
+    pub fn get_session_mute_state_by_name(&self, process_name: &str) -> Result<bool> {
+        for (&pid, _) in &self.session_control_map {
+            if let Ok(name) = self.get_process_name(pid) {
+                if name == process_name {
+                    return self.get_session_mute_state(pid);
+                }
+            }
+        }
+        Err(anyhow::anyhow!("Process not found: {}", process_name))
+    }
+
+    /// セッションごとのミュート状態を設定します
+    pub fn set_session_mute_state_by_name(&self, process_name: &str, mute_state: bool) -> Result<()> {
+        for (&pid, _) in &self.session_control_map {
+            if let Ok(name) = self.get_process_name(pid) {
+                if name == process_name {
+                    return self.set_session_mute_state(pid, mute_state);
+                }
+            }
+        }
+        Err(anyhow::anyhow!("Process not found: {}", process_name))
+    }
 }
 
 impl Drop for IMMAudioDevice {
