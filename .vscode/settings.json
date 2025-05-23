@@ -1,0 +1,6 @@
+{
+  "editor.inlayHints.enabled": "offUnlessPressed",
+  "rust-analyzer.linkedProjects": [
+    "src-tauri/Cargo.toml"
+  ]
+}
