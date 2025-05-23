@@ -333,6 +333,20 @@ impl IMMAudioDevice {
         }
         Err(anyhow::anyhow!("Process not found: {}", process_name))
     }
+
+    pub fn get_session_list(&self) -> Result<Vec<(u32, String)>> {
+        let mut session_list = Vec::new();
+
+        for (&pid, _) in &self.session_control_map {
+            if let Ok(name) = self.get_process_name(pid) {
+                session_list.push((pid, name));
+            }
+        }
+
+        println!("Session List: {:?}", session_list);
+
+        Ok(session_list)
+    }
 }
 
 impl Drop for IMMAudioDevice {

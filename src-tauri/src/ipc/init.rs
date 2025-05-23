@@ -22,6 +22,12 @@ pub enum IPCHandlers {
     DefaultAudioChange { id: String },
     VolumeChange { id: String, volume: f32 },
     MuteStateChange { id: String, muted: bool },
+    #[serde(rename_all = "camelCase")]
+    SessionVolumeChange { id: String, process_name: String, volume: f32 },
+    #[serde(rename_all = "camelCase")]
+    SessionMuteStateChange { id: String, process_name: String, muted: bool },
+
+    AudioSessionDict { id: String },
 }
 
 const RECEIVE_INTERVAL: Duration = Duration::from_millis(100);
@@ -182,6 +188,87 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                     if let Err(e) = e {
                         log::error!("{:?}", e);
                         // continue;
+                    }
+                }
+                IPCHandlers::SessionVolumeChange { id, process_name, volume } => {
+                    let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
+                        inner: UnexpectedErr::LockError,
+                    })?;
+
+                    let audio_w = dict.get(&id).ok_or(APIError::SomethingWrong {
+                        msg: format!("No such audio: {:?}", id),
+                    });
+
+                    let audio = match audio_w {
+                        Ok(audio) => audio,
+                        Err(e) => {
+                            log::error!("{:?}", e);
+                            continue;
+                        }
+                    };
+
+                    let e = audio
+                        .set_session_volume_by_name(&process_name, volume)
+                        .map_err(|e| APIError::SomethingWrong {
+                            msg: format!("@audio.set_session_volume_by_name {:?}", e),
+                        });
+
+                    if let Err(e) = e {
+                        log::error!("{:?}", e);
+                    }
+                }
+                IPCHandlers::SessionMuteStateChange { id, process_name, muted } => {
+                    let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
+                        inner: UnexpectedErr::LockError,
+                    })?;
+
+                    let audio_w = dict.get(&id).ok_or(APIError::SomethingWrong {
+                        msg: format!("No such audio: {:?}", id),
+                    });
+
+                    let audio = match audio_w {
+                        Ok(audio) => audio,
+                        Err(e) => {
+                            log::error!("{:?}", e);
+                            continue;
+                        }
+                    };
+
+                    let e = audio
+                        .set_session_mute_state_by_name(&process_name, muted)
+                        .map_err(|e| APIError::SomethingWrong {
+                            msg: format!("@audio.set_session_mute_state_by_name {:?}", e),
+                        });
+
+                    if let Err(e) = e {
+                        log::error!("{:?}", e);
+                    }
+                }
+                IPCHandlers::AudioSessionDict { id } => {
+                    let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
+                        inner: UnexpectedErr::LockError,
+                    })?;
+
+                    let audio_w = dict.get(&id).ok_or(APIError::SomethingWrong {
+                        msg: format!("No such audio: {:?}", id),
+                    });
+
+                    let audio = match audio_w {
+                        Ok(audio) => audio,
+                        Err(e) => {
+                            log::error!("{:?}", e);
+                            continue;
+                        }
+                    };
+
+                    let e = audio
+                        .get_session_list()
+                        .map_err(|e| APIError::SomethingWrong {
+                            msg: format!("@audio.get_session_list {:?}", e),
+                        });
+
+                    if let Err(e) = e {
+                        log::error!("{:?}", e);
                     }
                 }
             }

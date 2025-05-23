@@ -25,8 +25,35 @@ export type Channels = {
   kind: "Channels";
 };
 
+export type SessionVolumeChange = {
+  kind: "SessionVolumeChange";
+  id: string; // デバイスID
+  processName: string;
+  volume: number;
+};
 
-export type Query = AudioDict | DefaultAudioChange | VolumeChange | MuteStateChange | Channels;
+export type SessionMuteStateChange = {
+  kind: "SessionMuteStateChange";
+  id: string; // デバイスID
+  processName: string;
+  muted: boolean;
+};
+
+export type AudioSessionDict = {
+  kind: "AudioSessionDict";
+  id: string;
+};
+
+export type Query =
+  | AudioDict
+  | DefaultAudioChange
+  | VolumeChange
+  | MuteStateChange
+  | Channels
+  | SessionVolumeChange
+  | SessionMuteStateChange
+  | AudioSessionDict;
+  ;
 
 export type QueryKind = Query["kind"];
 
