@@ -1,11 +1,11 @@
 import { Card, CardContent, CircularProgress, CssBaseline, Stack } from "@mui/material";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import AppContext from "./AppContext";
-import { invokeQuery } from "./ipc";
 import Meter from "./Meter";
 import ThemeProvider from "./ThemeProvider";
+import { invokeQuery } from "./ipc";
 import useWindowsAudioState from "./useWindowsAudioState";
 
 function App() {
@@ -99,28 +99,61 @@ function App() {
   }, [audioState?.default]);
 
   // ここから追加
-  const [sessionDeviceId, setSessionDeviceId] = useState("");
-  const [sessionProcessName, setSessionProcessName] = useState("");
-  const [sessionVolume, setSessionVolume] = useState(0.5);
-  const [sessionMuted, setSessionMuted] = useState(false);
+  const experimentalAreaRef = useRef<HTMLDivElement | null>(null);
+  const processNameRef = useRef<HTMLInputElement | null>(null);
+  const volumeRef = useRef<HTMLInputElement | null>(null);
+  const muteRef = useRef<HTMLInputElement | null>(null);
 
-  const handleSessionVolumeChange = async () => {
+  const handleSessionVolumeChange = useCallback(async () => {
+
+    if (!defaultDevice) {
+      return;
+    }
+
+    console.log("handleSessionVolumeChange", defaultDevice.id);
+
+    const sessionProcessName = processNameRef.current?.value || "";
+    const sessionVolume = Number(volumeRef.current?.value) || 0;
+
     await invokeQuery({
       kind: "SessionVolumeChange",
-      id: sessionDeviceId,
+      id: defaultDevice.id,
       processName: sessionProcessName,
       volume: sessionVolume,
     });
-  };
+  }, [defaultDevice]);
 
   const handleSessionMuteChange = async () => {
+
+    if (!defaultDevice) {
+      return;
+    }
+
+    const sessionProcessName = processNameRef.current?.value || "";
+    const sessionMuted = muteRef.current?.checked || false;
+
     await invokeQuery({
       kind: "SessionMuteStateChange",
-      id: sessionDeviceId,
+      id: defaultDevice.id,
       processName: sessionProcessName,
       muted: sessionMuted,
     });
   };
+
+  useEffect(() => {
+    if (!experimentalAreaRef.current) {
+      return;
+    }
+
+    addIgnoreDragTarget(experimentalAreaRef.current);
+
+    return () => {
+      if (experimentalAreaRef.current) {
+        removeIgnoreDragTarget(experimentalAreaRef.current);
+      }
+    }
+
+  }, [addIgnoreDragTarget, removeIgnoreDragTarget]);
 
   return (
     <ThemeProvider>
@@ -148,19 +181,21 @@ function App() {
             )}
 
             {/* ここから追加：audio session操作用フォーム */}
-            <Stack spacing={2} mt={4}>
+            <Stack
+              spacing={2}
+              mt={4}
+              ref={experimentalAreaRef}
+            >
               <div>【試験的 Audio Session 操作】</div>
               <input
                 type="text"
-                placeholder="デバイスID"
-                value={sessionDeviceId}
-                onChange={e => setSessionDeviceId(e.target.value)}
+                placeholder={defaultDevice?.id}
               />
               <input
                 type="text"
                 placeholder="プロセス名 (例: chrome.exe)"
-                value={sessionProcessName}
-                onChange={e => setSessionProcessName(e.target.value)}
+                ref={processNameRef}
+                defaultValue="Discord.exe"
               />
               <input
                 type="number"
@@ -168,20 +203,19 @@ function App() {
                 max={1}
                 step={0.01}
                 placeholder="音量 (0.0-1.0)"
-                value={sessionVolume}
-                onChange={e => setSessionVolume(Number(e.target.value))}
+                ref={volumeRef}
+                defaultValue={0.5}
               />
               <label>
                 <input
                   type="checkbox"
-                  checked={sessionMuted}
-                  onChange={e => setSessionMuted(e.target.checked)}
+                  ref={muteRef}
                 />
                 ミュート
               </label>
               <Stack direction="row" spacing={2}>
-                <button onClick={handleSessionVolumeChange}>音量変更</button>
-                <button onClick={handleSessionMuteChange}>ミュート切替</button>
+                <button type="button" onClick={handleSessionVolumeChange}>音量変更</button>
+                <button type="button" onClick={handleSessionMuteChange}>ミュート切替</button>
               </Stack>
             </Stack>
             {/* 追加ここまで */}
