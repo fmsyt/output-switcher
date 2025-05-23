@@ -79,6 +79,12 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
         })?));
 
         while let Some(q) = query_rx.recv().await {
+
+            #[cfg(debug_assertions)]
+            {
+                println!("IPC query: {:?}", q);
+            }
+
             match q {
                 IPCHandlers::AudioDictUpdate { notification } => {
                     {
