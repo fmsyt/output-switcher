@@ -2,29 +2,15 @@ import { Card, CardContent, CircularProgress, CssBaseline, Stack } from "@mui/ma
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import AppContext from "./AppContext";
 import Meter from "./Meter";
 import ThemeProvider from "./ThemeProvider";
 import { invokeQuery } from "./ipc";
+import useDragging from "./useDragging";
 import useWindowsAudioState from "./useWindowsAudioState";
 
 function App() {
 
-  const ignoreDragTargetsRef = useRef<HTMLElement[]>([]);
-
-  const addIgnoreDragTarget = useCallback((target: HTMLElement) => {
-    ignoreDragTargetsRef.current.push(target);
-  }, []);
-
-  const removeIgnoreDragTarget = useCallback((target: HTMLElement) => {
-    const index = ignoreDragTargetsRef.current.indexOf(target);
-    if (index !== -1) {
-      ignoreDragTargetsRef.current.splice(index, 1);
-    }
-  }, []);
-
-
-  const cardRef = useRef<HTMLDivElement | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
 
     if (!cardRef.current) {
@@ -46,39 +32,23 @@ function App() {
     mainWindow.setMinSize(minSize);
     mainWindow.setMaxSize(maxSize);
 
-    const handler = async (e: MouseEvent) => {
-
-      if (ignoreDragTargetsRef.current.some(target => target.contains(e.target as Node))) {
-        return;
-      }
-
-      mainWindow.startDragging();
-    }
-
-    cardRef.current.addEventListener("mousedown", (handler));
-
-    return () => {
-      cardRef.current?.removeEventListener("mousedown", handler);
-    }
-
   }, [])
 
   const audioState = useWindowsAudioState();
 
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const defaultDevice = useMemo(() => {
-    if (!audioState) {
+    if (!audioState?.default) {
       return null;
     }
 
     return audioState.audioDeviceList.find(device => device.id === audioState.default);
-  }, [audioState?.default]);
+  }, [audioState?.default, audioState?.audioDeviceList]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+
   const getVolume = useCallback((deviceId: string) => {
 
-    if (!audioState) {
+    if (!audioState?.audioDeviceList) {
       return 0;
     }
 
@@ -140,6 +110,8 @@ function App() {
     });
   };
 
+  const { addIgnoreDragTarget, removeIgnoreDragTarget } = useDragging();
+
   useEffect(() => {
     if (!experimentalAreaRef.current) {
       return;
@@ -158,70 +130,63 @@ function App() {
   return (
     <ThemeProvider>
       <CssBaseline />
-      <AppContext.Provider
-        value={{
-          addIgnoreDragTarget,
-          removeIgnoreDragTarget,
-        }}
-      >
-        <Card ref={cardRef}>
-          <CardContent>
-            {defaultDevice && (
-              <Meter
-                device={defaultDevice}
-                defaultVolume={getVolume(defaultDevice.id)}
-                deviceList={audioState?.audioDeviceList}
-              />
-            )}
+      <Card ref={cardRef}>
+        <CardContent>
+          {defaultDevice && (
+            <Meter
+              device={defaultDevice}
+              defaultVolume={getVolume(defaultDevice.id)}
+              deviceList={audioState?.audioDeviceList}
+            />
+          )}
 
-            {!defaultDevice && (
-              <Stack spacing={2} alignItems="center">
-                <CircularProgress />
-              </Stack>
-            )}
-
-            {/* ここから追加：audio session操作用フォーム */}
-            <Stack
-              spacing={2}
-              mt={4}
-              ref={experimentalAreaRef}
-            >
-              <div>【試験的 Audio Session 操作】</div>
-              <input
-                type="text"
-                placeholder={defaultDevice?.id}
-              />
-              <input
-                type="text"
-                placeholder="プロセス名 (例: chrome.exe)"
-                ref={processNameRef}
-                defaultValue="Discord.exe"
-              />
-              <input
-                type="number"
-                min={0}
-                max={1}
-                step={0.01}
-                placeholder="音量 (0.0-1.0)"
-                ref={volumeRef}
-                defaultValue={0.5}
-              />
-              <label>
-                <input
-                  type="checkbox"
-                  ref={muteRef}
-                />
-                ミュート
-              </label>
-              <Stack direction="row" spacing={2}>
-                <button type="button" onClick={handleSessionVolumeChange}>音量変更</button>
-                <button type="button" onClick={handleSessionMuteChange}>ミュート切替</button>
-              </Stack>
+          {!defaultDevice && (
+            <Stack spacing={2} alignItems="center">
+              <CircularProgress />
             </Stack>
-            {/* 追加ここまで */}
-          </CardContent>
-        </Card>
-      </AppContext.Provider>
+          )}
+
+          {/* ここから追加：audio session操作用フォーム */}
+          <Stack
+            spacing={2}
+            mt={4}
+            ref={experimentalAreaRef}
+          >
+            <div>【試験的 Audio Session 操作】</div>
+            <input
+              type="text"
+              placeholder={defaultDevice?.id}
+            />
+            <input
+              type="text"
+              placeholder="プロセス名 (例: chrome.exe)"
+              ref={processNameRef}
+              defaultValue="Discord.exe"
+            />
+            <input
+              type="number"
+              min={0}
+              max={1}
+              step={0.01}
+              placeholder="音量 (0.0-1.0)"
+              ref={volumeRef}
+              defaultValue={0.5}
+            />
+            <label>
+              <input
+                type="checkbox"
+                ref={muteRef}
+              />
+              ミュート
+            </label>
+            <Stack direction="row" spacing={2}>
+              <button type="button" onClick={handleSessionVolumeChange}>音量変更</button>
+              <button type="button" onClick={handleSessionMuteChange}>ミュート切替</button>
+            </Stack>
+          </Stack>
+          {/* 追加ここまで */}
+        </CardContent>
+      </Card>
     </ThemeProvider>
   );
 }

@@ -4,10 +4,10 @@ import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import { Grid, IconButton, Slider, Stack, Typography } from "@mui/material";
 import { invoke } from "@tauri-apps/api/core";
 import { type UnlistenFn, listen } from "@tauri-apps/api/event";
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import AppContext from "./AppContext";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invokeQuery } from "./ipc";
 import type { MeterProps } from "./types";
+import useDragging from './useDragging';
 import useRegisterContextMenu from './useRegisterContextMenu';
 
 const volumeStep = 0.01;
@@ -29,7 +29,7 @@ registerListeners();
 
 export default function Meter(props: MeterProps) {
 
-  const appContext = useContext(AppContext);
+  const ignoreDragContext = useDragging();
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const sliderRef = useRef<HTMLSpanElement | null>(null);
 
@@ -53,7 +53,7 @@ export default function Meter(props: MeterProps) {
   }, [])
 
   useEffect(() => {
-    const { addIgnoreDragTarget, removeIgnoreDragTarget } = appContext;
+    const { addIgnoreDragTarget, removeIgnoreDragTarget } = ignoreDragContext;
 
     buttonRef.current && addIgnoreDragTarget(buttonRef.current);
     sliderRef.current && addIgnoreDragTarget(sliderRef.current);
@@ -63,7 +63,7 @@ export default function Meter(props: MeterProps) {
       sliderRef.current && removeIgnoreDragTarget(sliderRef.current);
     }
 
-  }, [appContext])
+  }, [ignoreDragContext])
 
   const { device, defaultVolume, deviceList } = props;
 
