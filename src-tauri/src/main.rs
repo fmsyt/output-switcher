@@ -18,7 +18,9 @@ use ipc::{
     error::{APIError, UnexpectedErr},
     init::{prepare_backend, setup, BackendPrepareRet, IPCHandlers},
     quit,
+    sender::{AudioDeviceMap, AudioSessionInfo},
 };
+use std::sync::{Arc, Mutex};
 use tauri_plugin_dialog::DialogExt;
 
 #[tauri::command]
@@ -31,6 +33,35 @@ async fn query(tx: State<'_, Sender<IPCHandlers>>, query: IPCHandlers) -> Result
     Ok(())
 }
 
+#[tauri::command]
+async fn get_audio_sessions(
+    audio_dict: State<'_, Arc<Mutex<AudioDeviceMap>>>,
+    device_id: String,
+) -> Result<Vec<AudioSessionInfo>, APIError> {
+    let dict = audio_dict
+        .lock()
+        .map_err(|_| APIError::Unexpected {
+            inner: UnexpectedErr::LockError,
+        })?;
+
+    let audio = dict.get(&device_id).ok_or(APIError::SomethingWrong {
+        msg: format!("No such audio device: {:?}", device_id),
+    })?;
+
+    let sessions = audio
+        .get_session_list()
+        .map_err(|e| APIError::SomethingWrong {
+            msg: format!("@audio.get_session_list {:?}", e),
+        })?;
+
+    let session_infos = sessions
+        .into_iter()
+        .map(|(pid, name, volume, muted)| AudioSessionInfo::from_session(pid, name, volume, muted))
+        .collect();
+
+    Ok(session_infos)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let BackendPrepareRet {
@@ -38,14 +69,17 @@ async fn main() -> Result<()> {
         backend_thread,
         ipc_tx,
         ipc_rx,
+        audio_dict,
+        singleton: _,
     } = prepare_backend().await?;
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .invoke_handler(tauri::generate_handler![query, quit])
+        .invoke_handler(tauri::generate_handler![query, quit, get_audio_sessions])
         .manage(ipc_tx)
+        .manage(audio_dict)
         .setup(|app| {
             setup(app, ipc_rx);
 

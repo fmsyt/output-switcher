@@ -9,7 +9,7 @@ use tokio::time::{timeout, Duration};
 use super::{
     audio::{notifier::Notification, IMMAudioDevice, Singleton},
     error::*,
-    sender::{ipc_sender, AudioStateChangePayload},
+    sender::{ipc_sender, AudioDeviceMap, AudioStateChangePayload},
 };
 
 type AudioDict = BTreeMap<String, IMMAudioDevice>;
@@ -37,6 +37,8 @@ pub struct BackendPrepareRet {
     pub backend_thread: JoinHandle<Result<(), APIError>>,
     pub ipc_tx: Sender<IPCHandlers>,
     pub ipc_rx: Receiver<AudioStateChangePayload>,
+    pub audio_dict: Arc<Mutex<AudioDeviceMap>>,
+    pub singleton: Arc<Singleton>,
 }
 
 pub async fn prepare_backend() -> Result<BackendPrepareRet> {
@@ -64,19 +66,23 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
         Result::<()>::Ok(())
     });
 
-    let backend_thread = tokio::spawn(async move {
-        let is =
-            Arc::new(
-                Singleton::new(&backend_update_tx).map_err(|e| APIError::SomethingWrong {
-                    msg: format!("@InstantsSingleton::new {:?}", e),
-                })?,
-            );
+    let is =
+        Arc::new(
+            Singleton::new(&backend_update_tx).map_err(|e| APIError::SomethingWrong {
+                msg: format!("@InstantsSingleton::new {:?}", e),
+            })?,
+        );
 
-        let audio_dict = Arc::new(Mutex::new(get_audio_dictionary(&(is)).map_err(|e| {
-            APIError::SomethingWrong {
-                msg: format!("@get_audio_dict {:?}", e),
-            }
-        })?));
+    let audio_dict = Arc::new(Mutex::new(get_audio_dictionary(&(is)).map_err(|e| {
+        APIError::SomethingWrong {
+            msg: format!("@get_audio_dict {:?}", e),
+        }
+    })?));
+
+    let is_clone = is.clone();
+    let audio_dict_clone = audio_dict.clone();
+
+    let backend_thread = tokio::spawn(async move {
 
         while let Some(q) = query_rx.recv().await {
 
@@ -288,6 +294,8 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
         backend_thread,
         ipc_tx,
         ipc_rx,
+        audio_dict: audio_dict_clone,
+        singleton: is_clone,
     })
 }
 
