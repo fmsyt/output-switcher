@@ -22,6 +22,7 @@ const eventNames = [
   "DeviceStateChanged",
   "PropertyValueChanged",
   "VolumeChanged",
+  "SessionVolumeChanged",
 ] as const;
 
 export type EventName = typeof eventNames[number];
@@ -45,8 +46,14 @@ export interface VolumeChanged extends EventPayloadBase {
   volume: number;
   muted: boolean;
 }
+export interface SessionVolumeChanged {
+  type: "SessionVolumeChanged";
+  process_id: number;
+  volume: number;
+  muted: boolean;
+}
 
-export type Notify = | DefaultDeviceChanged | DeviceAdded | DeviceRemoved | DeviceStateChanged | PropertyValueChanged | VolumeChanged;
+export type Notify = | DefaultDeviceChanged | DeviceAdded | DeviceRemoved | DeviceStateChanged | PropertyValueChanged | VolumeChanged | SessionVolumeChanged;
 
 
 

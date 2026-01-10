@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::fmt::Debug;
 use tokio::sync::mpsc::Sender;
 use windows::{
-    core::{implement, PCWSTR},
+    core::{implement, PCWSTR, GUID},
     Win32::{
         Foundation::{ERROR_ACCESS_DENIED, ERROR_INVALID_DATA, WIN32_ERROR},
         Media::Audio::{
@@ -11,8 +11,9 @@ use windows::{
                 IAudioEndpointVolume, IAudioEndpointVolumeCallback,
                 IAudioEndpointVolumeCallback_Impl,
             },
+            IAudioSessionEvents, IAudioSessionEvents_Impl,
             IMMDeviceEnumerator, IMMNotificationClient, IMMNotificationClient_Impl,
-            AUDIO_VOLUME_NOTIFICATION_DATA, DEVICE_STATE,
+            AUDIO_VOLUME_NOTIFICATION_DATA, DEVICE_STATE, AudioSessionDisconnectReason,
         },
         UI::Shell::PropertiesSystem::PROPERTYKEY,
     },
@@ -48,7 +49,7 @@ pub enum Notification {
         muted: bool,
     },
     SessionVolumeChanged {
-        id: String,
+        process_id: u32,
         volume: f32,
         muted: bool,
     },
@@ -173,6 +174,79 @@ impl IAudioEndpointVolumeCallback_Impl for AudioEndpointVolumeCallback {
     }
 }
 
+#[implement(IAudioSessionEvents)]
+struct AudioSessionEventsCallback {
+    tx: Sender<Notification>,
+    process_id: u32,
+}
+
+impl IAudioSessionEvents_Impl for AudioSessionEventsCallback {
+    fn OnDisplayNameChanged(
+        &self,
+        _newdisplayname: &PCWSTR,
+        _eventcontext: *const GUID,
+    ) -> windows::core::Result<()> {
+        Ok(())
+    }
+
+    fn OnIconPathChanged(
+        &self,
+        _newiconpath: &PCWSTR,
+        _eventcontext: *const GUID,
+    ) -> windows::core::Result<()> {
+        Ok(())
+    }
+
+    fn OnSimpleVolumeChanged(
+        &self,
+        newvolume: f32,
+        newmute: windows::Win32::Foundation::BOOL,
+        _eventcontext: *const GUID,
+    ) -> windows::core::Result<()> {
+        self.tx
+            .blocking_send(Notification::SessionVolumeChanged {
+                process_id: self.process_id,
+                volume: newvolume,
+                muted: newmute.as_bool(),
+            })
+            .map_err(|e| to_win_error(e, ERROR_ACCESS_DENIED))?;
+
+        Ok(())
+    }
+
+    fn OnChannelVolumeChanged(
+        &self,
+        _channelcount: u32,
+        _newchannelvolumearray: *const f32,
+        _changedchannel: u32,
+        _eventcontext: *const GUID,
+    ) -> windows::core::Result<()> {
+        Ok(())
+    }
+
+    fn OnGroupingParamChanged(
+        &self,
+        _newgroupingparam: *const GUID,
+        _eventcontext: *const GUID,
+    ) -> windows::core::Result<()> {
+        Ok(())
+    }
+
+    fn OnStateChanged(
+        &self,
+        _newstate: windows::Win32::Media::Audio::AudioSessionState,
+    ) -> windows::core::Result<()> {
+        Ok(())
+    }
+
+    fn OnSessionDisconnected(
+        &self,
+        _disconnectreason: AudioSessionDisconnectReason,
+    ) -> windows::core::Result<()> {
+        Ok(())
+    }
+}
+
 pub(crate) struct NotificationCallbacks {
     notification_client: IMMNotificationClient,
     endpoint_volume_callback: IAudioEndpointVolumeCallback,
@@ -187,6 +261,17 @@ impl NotificationCallbacks {
             notification_client,
             endpoint_volume_callback,
         }
+    }
+
+    pub(crate) fn create_session_events_callback(
+        tx: &Sender<Notification>,
+        process_id: u32,
+    ) -> IAudioSessionEvents {
+        AudioSessionEventsCallback {
+            tx: tx.clone(),
+            process_id,
+        }
+        .into()
     }
 
     pub(crate) fn register_to_enumerator(

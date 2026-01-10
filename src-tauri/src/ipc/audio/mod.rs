@@ -13,7 +13,7 @@ use windows::{
         Foundation::{CloseHandle, FALSE},
         Media::Audio::{
             eMultimedia, eRender, Endpoints::IAudioEndpointVolume, IAudioSessionControl,
-            IAudioSessionControl2, IAudioSessionManager2, IMMDevice, IMMDeviceEnumerator,
+            IAudioSessionControl2, IAudioSessionEvents, IAudioSessionManager2, IMMDevice, IMMDeviceEnumerator,
             ISimpleAudioVolume, MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
         },
         System::{
@@ -54,6 +54,7 @@ pub struct Singleton {
     pub(crate) device_enumerator: IMMDeviceEnumerator,
     notification_callbacks: notifier::NotificationCallbacks,
     policy_config: device_changer::PolicyConfig,
+    tx: Sender<notifier::Notification>,
 }
 
 unsafe impl Send for Singleton {}
@@ -73,6 +74,7 @@ impl Singleton {
             device_enumerator,
             notification_callbacks,
             policy_config,
+            tx: tx.clone(),
         })
     }
 
@@ -135,6 +137,7 @@ pub struct IMMAudioDevice {
     pub(crate) endpoint_volume: IAudioEndpointVolume,
 
     pub(crate) session_control_map: HashMap<u32, IAudioSessionControl>,
+    session_events_map: HashMap<u32, IAudioSessionEvents>,
 }
 
 unsafe impl Send for IMMAudioDevice {}
@@ -150,8 +153,8 @@ impl IMMAudioDevice {
         let endpoint_volume: IAudioEndpointVolume = unsafe { device.Activate(CLSCTX_ALL, None)? };
 
         let mut session_control_map: HashMap<u32, IAudioSessionControl> = HashMap::new();
+        let mut session_events_map: HashMap<u32, IAudioSessionEvents> = HashMap::new();
 
-        #[cfg(debug_assertions)]
         unsafe {
             let session_manager: IAudioSessionManager2 = device.Activate(CLSCTX_ALL, None)?;
             let sessions = session_manager.GetSessionEnumerator()?;
@@ -161,32 +164,12 @@ impl IMMAudioDevice {
                 let session_control2: IAudioSessionControl2 = session_control.cast().unwrap();
                 let process_id = session_control2.GetProcessId()?;
 
+                // セッションイベントコールバックを作成して登録
+                let session_events = notifier::NotificationCallbacks::create_session_events_callback(&is.tx, process_id);
+                session_control.RegisterAudioSessionNotification(&session_events)?;
+
                 session_control_map.insert(process_id, session_control);
-
-                // let mut process_name = "Unknown".to_string();
-
-                // if process_id == 0 {
-                //     process_name = "System Sounds".to_string();
-                // } else if let Ok(name) = get_process_name_by_id(process_id) {
-                //     process_name = name;
-                // }
-
-                // let audio_volume: ISimpleAudioVolume = session_control.cast().unwrap();
-                // let mut volume = 0.0;
-                // let mut mute = false;
-
-                // if let Ok(v) = audio_volume.GetMasterVolume() {
-                //     volume = v;
-                // }
-
-                // if let Ok(m) = audio_volume.GetMute() {
-                //     mute = m.as_bool();
-                // }
-
-                // println!(
-                //     "Session: {} (PID: {}), Volume: {}, Mute: {}",
-                //     process_name, process_id, volume, mute
-                // );
+                session_events_map.insert(process_id, session_events);
             }
         }
 
@@ -200,6 +183,7 @@ impl IMMAudioDevice {
             endpoint_volume,
             is,
             session_control_map,
+            session_events_map,
         })
     }
 
@@ -351,6 +335,13 @@ impl IMMAudioDevice {
 
 impl Drop for IMMAudioDevice {
     fn drop(&mut self) {
+        // セッションイベントの登録解除
+        for (process_id, session_control) in &self.session_control_map {
+            if let Some(session_events) = self.session_events_map.get(process_id) {
+                let _ = unsafe { session_control.UnregisterAudioSessionNotification(session_events) };
+            }
+        }
+
         self.is
             .notification_callbacks
             .unregister_to_volume(&self.endpoint_volume)
