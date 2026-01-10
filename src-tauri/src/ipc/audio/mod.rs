@@ -267,6 +267,9 @@ impl IMMAudioDevice {
 
     /// プロセスIDからプロセス名を取得します
     pub fn get_process_name(&self, process_id: u32) -> Result<String> {
+        if process_id == 0 {
+            return Ok("システム音".to_string());
+        }
         unsafe { get_process_name_by_id(process_id) }
     }
 

@@ -42,11 +42,19 @@ export default function SessionVolumeControl({
           deviceId,
         }
       );
-      setSessions(sessionList);
+      
+      // システム音（プロセスID 0）を最初に、その後はプロセス名でソート
+      const sortedSessions = sessionList.sort((a, b) => {
+        if (a.process_id === 0) return -1;
+        if (b.process_id === 0) return 1;
+        return a.process_name.localeCompare(b.process_name);
+      });
+      
+      setSessions(sortedSessions);
       
       // 現在選択中のセッションが存在する場合、最新の情報で更新
       if (selectedSession) {
-        const updated = sessionList.find(
+        const updated = sortedSessions.find(
           (s) => s.process_id === selectedSession.process_id
         );
         if (updated) {
@@ -151,6 +159,7 @@ export default function SessionVolumeControl({
             )}
             {sessions.map((session) => (
               <MenuItem key={session.process_id} value={session.process_id}>
+                {session.process_id === 0 ? "🔔 " : ""}
                 {session.process_name}
               </MenuItem>
             ))}
