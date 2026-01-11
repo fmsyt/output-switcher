@@ -1,16 +1,8 @@
-import {
-  Box,
-  Checkbox,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  Slider,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Box, FormControl, InputLabel, MenuItem, Select, Stack, Typography, } from "@mui/material";
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import Checkbox from "./component/Checkbox";
+import Slider from "./component/Slider";
 import { invokeQuery } from "./ipc";
 
 interface AudioSessionInfo {
@@ -38,9 +30,7 @@ export default function SessionVolumeControl({
     try {
       const sessionList = await invoke<AudioSessionInfo[]>(
         "get_audio_sessions",
-        {
-          deviceId,
-        }
+        { deviceId }
       );
 
       // システム音（プロセスID 0）を最初に、その後はプロセス名でソート

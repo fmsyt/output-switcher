@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 export type DraggingContextValues = {
-  addIgnoreDragTarget: (target: HTMLElement) => void;
+  addIgnoreDragTarget: (target: HTMLElement) => () => void;
   removeIgnoreDragTarget: (target: HTMLElement) => void;
 }
 
