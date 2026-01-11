@@ -1,18 +1,18 @@
 import { Card, CardContent, CircularProgress, CssBaseline, Stack } from "@mui/material";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useEffect, useMemo, useRef } from "react";
+import { useContext, useEffect, useMemo, useRef } from "react";
 import Meter from "./Meter";
 import SessionVolumeControl from "./SessionVolumeControl";
 import ThemeProvider from "./ThemeProvider";
-import useDragging from "./useDragging";
+import DraggingContext from "./effect/dragging/DraggingContext";
+import DraggingProvider from "./effect/dragging/DraggingProvider";
 import useWindowsAudioState from "./useWindowsAudioState";
 
 function App() {
 
   const cardRef = useRef<HTMLDivElement>(null);
-  const sessionControlRef = useRef<HTMLDivElement>(null);
-  const { addIgnoreDragTarget, removeIgnoreDragTarget } = useDragging();
+  // const { addIgnoreDragTarget, removeIgnoreDragTarget } = useDragging();
 
   useEffect(() => {
 
@@ -37,6 +37,35 @@ function App() {
 
   }, [])
 
+  return (
+    <DraggingProvider>
+      <ThemeProvider>
+        <CssBaseline />
+
+        <div ref={cardRef}>
+          <Container />
+        </div>
+      </ThemeProvider>
+    </DraggingProvider>
+  );
+}
+
+function Container() {
+
+  const { addIgnoreDragTarget, removeIgnoreDragTarget } = useContext(DraggingContext)
+
+  const sessionControlRef = useRef<HTMLDivElement>(null);
+
+  const audioState = useWindowsAudioState();
+  const defaultDevice = useMemo(() => {
+    if (!audioState?.default) {
+      return null;
+    }
+
+    return audioState.audioDeviceList.find(device => device.id === audioState.default);
+  }, [audioState?.default, audioState?.audioDeviceList]);
+
+
   useEffect(() => {
     if (sessionControlRef.current) {
       addIgnoreDragTarget(sessionControlRef.current);
@@ -49,45 +78,32 @@ function App() {
     };
   }, [addIgnoreDragTarget, removeIgnoreDragTarget]);
 
-  const audioState = useWindowsAudioState();
-
-
-  const defaultDevice = useMemo(() => {
-    if (!audioState?.default) {
-      return null;
-    }
-
-    return audioState.audioDeviceList.find(device => device.id === audioState.default);
-  }, [audioState?.default, audioState?.audioDeviceList]);
-
 
   return (
-    <ThemeProvider>
-      <CssBaseline />
-      <Card ref={cardRef}>
-        <CardContent>
-          {defaultDevice && (
-            <>
-              <Meter
-                device={defaultDevice}
-                defaultVolume={defaultDevice.volume}
-                deviceList={audioState?.audioDeviceList}
-              />
-              <div ref={sessionControlRef}>
-                <SessionVolumeControl deviceId={defaultDevice.id} />
-              </div>
-            </>
-          )}
+    <Card>
+      <CardContent>
+        {defaultDevice && (
+          <>
+            <Meter
+              device={defaultDevice}
+              defaultVolume={defaultDevice.volume}
+              deviceList={audioState?.audioDeviceList}
+            />
+            <div ref={sessionControlRef}>
+              <SessionVolumeControl deviceId={defaultDevice.id} />
+            </div>
+          </>
+        )}
 
-          {!defaultDevice && (
-            <Stack spacing={2} alignItems="center">
-              <CircularProgress />
-            </Stack>
-          )}
-        </CardContent>
-      </Card>
-    </ThemeProvider>
-  );
+        {!defaultDevice && (
+          <Stack spacing={2} alignItems="center">
+            <CircularProgress />
+          </Stack>
+        )}
+      </CardContent>
+    </Card>
+  )
+
 }
 
 export default App;

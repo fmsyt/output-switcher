@@ -7,8 +7,8 @@ import { type UnlistenFn, listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invokeQuery } from "./ipc";
 import type { MeterProps } from "./types";
-import useDragging from './useDragging';
 import useRegisterContextMenu from './useRegisterContextMenu';
+import useDragging from './effect/dragging/useDragging';
 
 const volumeStep = 0.01;
 

@@ -38,11 +38,9 @@ async fn get_audio_sessions(
     audio_dict: State<'_, Arc<Mutex<AudioDeviceMap>>>,
     device_id: String,
 ) -> Result<Vec<AudioSessionInfo>, APIError> {
-    let dict = audio_dict
-        .lock()
-        .map_err(|_| APIError::Unexpected {
-            inner: UnexpectedErr::LockError,
-        })?;
+    let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
+        inner: UnexpectedErr::LockError,
+    })?;
 
     let audio = dict.get(&device_id).ok_or(APIError::SomethingWrong {
         msg: format!("No such audio device: {:?}", device_id),
@@ -135,8 +133,8 @@ async fn main() -> Result<()> {
 
             #[cfg(debug_assertions)]
             {
-                // let main_window = app.get_webview_window("main").unwrap();
-                // main_window.open_devtools();
+                let main_window = app.get_webview_window("main").unwrap();
+                main_window.open_devtools();
             }
 
             Ok(())

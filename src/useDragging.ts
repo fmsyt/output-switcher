@@ -4,6 +4,9 @@ import { useCallback, useRef } from "react";
 type CleanupHandler = () => void;
 
 export default function useDragging() {
+
+  throw new Error("useDragging is deprecated. Please use DraggingProvider instead.");
+
   const ignoreDragTargetsRef = useRef<Map<HTMLElement, CleanupHandler>>(new Map());
 
   const addIgnoreDragTarget = useCallback((target: HTMLElement) => {
@@ -14,7 +17,7 @@ export default function useDragging() {
     target.style.outline = "red solid 1px"; // For debugging, to see which elements are registered
 
     const eventHandler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
+      const target = e.currentTarget as HTMLElement;
       if (ignoreDragTargetsRef.current.has(target)) {
         console.log("ignoreDragTargetsRef", ignoreDragTargetsRef.current);
         // return;
