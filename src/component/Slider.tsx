@@ -1,8 +1,8 @@
 import { Slider as MuiSlider, type SliderProps } from "@mui/material";
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useRef } from "react";
 import useDragging from "../effect/dragging/useDragging";
 
-export default function Slider(props: SliderProps) {
+const Slider = forwardRef<HTMLSpanElement, SliderProps>(function Slider(props, forwardedRef) {
 
   const context = useDragging();
   const ref = useRef<HTMLElement>(null)
@@ -22,6 +22,7 @@ export default function Slider(props: SliderProps) {
   return (
     <MuiSlider
       {...props}
+      ref={forwardedRef}
       slotProps={{
         root: {
           ...props.slotProps?.root,
@@ -32,4 +33,6 @@ export default function Slider(props: SliderProps) {
       }}
     />
   )
-}
+});
+
+export default Slider;
