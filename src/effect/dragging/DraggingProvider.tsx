@@ -33,6 +33,11 @@ export default function DraggingProvider(props: DraggingProviderProps) {
       return;
     }
 
+    // rootRef の子孫でない場合はドラッグ開始しない
+    if (!rootRef.current?.contains(event.target as Node)) {
+      return;
+    }
+
     const mainWindow = getCurrentWebviewWindow();
     mainWindow.startDragging();
 
