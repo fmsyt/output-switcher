@@ -3,6 +3,7 @@
 
 pub mod config;
 pub mod ipc;
+pub mod icon_extractor;
 
 use tauri::State;
 use tauri::{
@@ -20,6 +21,7 @@ use ipc::{
     quit,
     sender::{AudioDeviceMap, AudioSessionInfo},
 };
+use icon_extractor::extract_icon_as_base64;
 use std::sync::{Arc, Mutex};
 use tauri_plugin_dialog::DialogExt;
 
@@ -54,8 +56,15 @@ async fn get_audio_sessions(
 
     let session_infos = sessions
         .into_iter()
-        .map(|(session_id, pid, name, volume, muted, display_name, icon_path)| {
-            AudioSessionInfo::from_session(session_id, pid, name, volume, muted, display_name, icon_path)
+        .map(|(session_id, pid, name, volume, muted, display_name, icon_path, exe_path)| {
+            // 実行ファイルからアイコンを抽出
+            let icon_data = if !exe_path.is_empty() {
+                extract_icon_as_base64(&exe_path, 32).unwrap_or_default()
+            } else {
+                String::new()
+            };
+            
+            AudioSessionInfo::from_session(session_id, pid, name, volume, muted, display_name, icon_path, exe_path, icon_data)
         })
         .collect();
 

@@ -15,6 +15,8 @@ interface AudioSessionInfo {
   muted: boolean;
   display_name: string;
   icon_path: string;
+  exe_path: string;
+  icon_data: string;
 }
 
 interface SessionVolumeControlProps {
@@ -166,9 +168,17 @@ export default function SessionVolumeControl({
             )}
             {sessions.map((session) => (
               <MenuItem key={session.session_id} value={session.session_id}>
-                {session.process_id === 0 ? "🔔 " : ""}
-                {session.process_name}
-                {session.display_name && ` - ${session.display_name}`}
+                <Stack direction="row" spacing={1} alignItems="center">
+                  {session.icon_data ? (
+                    <img src={session.icon_data} alt="" style={{ width: 16, height: 16 }} />
+                  ) : (
+                    <span>{session.process_id === 0 ? "🔔" : "📦"}</span>
+                  )}
+                  <span>
+                    {session.process_name}
+                    {session.display_name && ` - ${session.display_name}`}
+                  </span>
+                </Stack>
               </MenuItem>
             ))}
           </Select>
@@ -177,9 +187,22 @@ export default function SessionVolumeControl({
         {selectedSession && (
           <>
             <Box sx={{ p: 1, bgcolor: "background.paper", borderRadius: 1, border: "1px solid #e0e0e0" }}>
+              {selectedSession.icon_data && (
+                <Box sx={{ mb: 1, display: "flex", alignItems: "center", gap: 1 }}>
+                  <img src={selectedSession.icon_data} alt="Application Icon" style={{ width: 32, height: 32 }} />
+                  <Typography variant="body2" fontWeight="bold">
+                    {selectedSession.process_name}
+                  </Typography>
+                </Box>
+              )}
               <Typography variant="caption" display="block" color="text.secondary">
                 プロセスID: {selectedSession.process_id}
               </Typography>
+              {selectedSession.exe_path && (
+                <Typography variant="caption" display="block" color="text.secondary" sx={{ wordBreak: "break-all" }}>
+                  実行ファイル: {selectedSession.exe_path}
+                </Typography>
+              )}
               {selectedSession.display_name && (
                 <Typography variant="caption" display="block" color="text.secondary">
                   表示名: {selectedSession.display_name}
