@@ -6,6 +6,7 @@ import Slider from "./component/Slider";
 import { invokeQuery } from "./ipc";
 
 interface AudioSessionInfo {
+  session_id: string;
   process_id: number;
   process_name: string;
   volume: number;
@@ -45,7 +46,7 @@ export default function SessionVolumeControl({
       // 現在選択中のセッションが存在する場合、最新の情報で更新
       if (selectedSession) {
         const updated = sortedSessions.find(
-          (s) => s.process_id === selectedSession.process_id
+          (s) => s.session_id === selectedSession.session_id
         );
         if (updated) {
           setSelectedSession(updated);
@@ -67,8 +68,8 @@ export default function SessionVolumeControl({
 
   // セッション選択時
   const handleSessionChange = useCallback(
-    (processId: number) => {
-      const session = sessions.find((s) => s.process_id === processId);
+    (sessionId: string) => {
+      const session = sessions.find((s) => s.session_id === sessionId);
       if (session) {
         setSelectedSession(session);
         setVolume(session.volume);
@@ -92,7 +93,7 @@ export default function SessionVolumeControl({
         await invokeQuery({
           kind: "SessionVolumeChange",
           id: deviceId,
-          processName: selectedSession.process_name,
+          sessionId: selectedSession.session_id,
           volume: newVolume,
         });
       }, 10);
@@ -119,7 +120,7 @@ export default function SessionVolumeControl({
       await invokeQuery({
         kind: "SessionMuteStateChange",
         id: deviceId,
-        processName: selectedSession.process_name,
+        sessionId: selectedSession.session_id,
         muted: newMuted,
       });
     },
@@ -138,9 +139,9 @@ export default function SessionVolumeControl({
           <Select
             labelId="session-select-label"
             id="session-select"
-            value={selectedSession?.process_id ?? ""}
+            value={selectedSession?.session_id ?? ""}
             label="ソフトウェア"
-            onChange={(e) => handleSessionChange(e.target.value as number)}
+            onChange={(e) => handleSessionChange(e.target.value as string)}
           >
             {sessions.length === 0 && (
               <MenuItem value="" disabled>
@@ -148,7 +149,7 @@ export default function SessionVolumeControl({
               </MenuItem>
             )}
             {sessions.map((session) => (
-              <MenuItem key={session.process_id} value={session.process_id}>
+              <MenuItem key={session.session_id} value={session.session_id}>
                 {session.process_id === 0 ? "🔔 " : ""}
                 {session.process_name}
               </MenuItem>
@@ -158,6 +159,15 @@ export default function SessionVolumeControl({
 
         {selectedSession && (
           <>
+            <Box sx={{ p: 1, bgcolor: "background.paper", borderRadius: 1, border: "1px solid #e0e0e0" }}>
+              <Typography variant="caption" display="block" color="text.secondary">
+                プロセスID: {selectedSession.process_id}
+              </Typography>
+              <Typography variant="caption" display="block" color="text.secondary" sx={{ wordBreak: "break-all" }}>
+                セッションID: {selectedSession.session_id}
+              </Typography>
+            </Box>
+
             <Stack direction="row" spacing={2} alignItems="center">
               <Typography variant="body2" sx={{ minWidth: 50 }}>
                 音量:

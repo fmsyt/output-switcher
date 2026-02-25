@@ -27,15 +27,15 @@ export type Channels = {
 
 export type SessionVolumeChange = {
   kind: "SessionVolumeChange";
-  id: string; // デバイスID
-  processName: string;
+  id: string;
+  sessionId: string;
   volume: number;
 };
 
 export type SessionMuteStateChange = {
   kind: "SessionMuteStateChange";
-  id: string; // デバイスID
-  processName: string;
+  id: string;
+  sessionId: string;
   muted: boolean;
 };
 

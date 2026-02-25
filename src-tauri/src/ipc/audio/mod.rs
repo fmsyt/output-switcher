@@ -13,8 +13,8 @@ use windows::{
         Foundation::{CloseHandle, FALSE},
         Media::Audio::{
             eMultimedia, eRender, Endpoints::IAudioEndpointVolume, IAudioSessionControl,
-            IAudioSessionControl2, IAudioSessionEvents, IAudioSessionManager2, IMMDevice, IMMDeviceEnumerator,
-            ISimpleAudioVolume, MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
+            IAudioSessionControl2, IAudioSessionEvents, IAudioSessionManager2, IMMDevice,
+            IMMDeviceEnumerator, ISimpleAudioVolume, MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
         },
         System::{
             Com::{
@@ -136,8 +136,9 @@ pub struct IMMAudioDevice {
     /// @see https://learn.microsoft.com/ja-jp/windows/win32/api/endpointvolume/nn-endpointvolume-iaudioendpointvolume
     pub(crate) endpoint_volume: IAudioEndpointVolume,
 
-    pub(crate) session_control_map: HashMap<u32, IAudioSessionControl>,
-    session_events_map: HashMap<u32, IAudioSessionEvents>,
+    pub(crate) session_control_map: HashMap<String, IAudioSessionControl>,
+    session_events_map: HashMap<String, IAudioSessionEvents>,
+    session_pid_map: HashMap<String, u32>,
 }
 
 unsafe impl Send for IMMAudioDevice {}
@@ -152,8 +153,9 @@ impl IMMAudioDevice {
         // https://learn.microsoft.com/ja-jp/windows/win32/api/endpointvolume/nn-endpointvolume-iaudioendpointvolume
         let endpoint_volume: IAudioEndpointVolume = unsafe { device.Activate(CLSCTX_ALL, None)? };
 
-        let mut session_control_map: HashMap<u32, IAudioSessionControl> = HashMap::new();
-        let mut session_events_map: HashMap<u32, IAudioSessionEvents> = HashMap::new();
+        let mut session_control_map: HashMap<String, IAudioSessionControl> = HashMap::new();
+        let mut session_events_map: HashMap<String, IAudioSessionEvents> = HashMap::new();
+        let mut session_pid_map: HashMap<String, u32> = HashMap::new();
 
         unsafe {
             let session_manager: IAudioSessionManager2 = device.Activate(CLSCTX_ALL, None)?;
@@ -163,13 +165,21 @@ impl IMMAudioDevice {
                 let session_control: IAudioSessionControl = sessions.GetSession(i)?;
                 let session_control2: IAudioSessionControl2 = session_control.cast().unwrap();
                 let process_id = session_control2.GetProcessId()?;
+                
+                // セッションインスタンスIDを取得
+                let session_id_pwstr = session_control2.GetSessionInstanceIdentifier()?;
+                let session_id = session_id_pwstr.to_string()?;
 
                 // セッションイベントコールバックを作成して登録
-                let session_events = notifier::NotificationCallbacks::create_session_events_callback(&is.tx, process_id);
+                let session_events =
+                    notifier::NotificationCallbacks::create_session_events_callback(
+                        &is.tx, process_id,
+                    );
                 session_control.RegisterAudioSessionNotification(&session_events)?;
 
-                session_control_map.insert(process_id, session_control);
-                session_events_map.insert(process_id, session_events);
+                session_control_map.insert(session_id.clone(), session_control);
+                session_events_map.insert(session_id.clone(), session_events);
+                session_pid_map.insert(session_id, process_id);
             }
         }
 
@@ -184,16 +194,24 @@ impl IMMAudioDevice {
             is,
             session_control_map,
             session_events_map,
+            session_pid_map,
         })
     }
 
-    pub(crate) fn get_session(&self, process_id: u32) -> Result<IAudioSessionControl> {
-        let session_control = self.session_control_map.get(&process_id).unwrap();
+    pub(crate) fn get_session(&self, session_id: &str) -> Result<IAudioSessionControl> {
+        let session_control = self.session_control_map.get(session_id)
+            .ok_or_else(|| anyhow::anyhow!("Session not found: {}", session_id))?;
         Ok(session_control.clone())
     }
 
-    pub(crate) fn get_session_audio_volume(&self, process_id: u32) -> Result<ISimpleAudioVolume> {
-        let session_control = self.get_session(process_id)?;
+    pub(crate) fn get_pid(&self, session_id: &str) -> Result<u32> {
+        self.session_pid_map.get(session_id)
+            .copied()
+            .ok_or_else(|| anyhow::anyhow!("Session not found: {}", session_id))
+    }
+
+    pub(crate) fn get_session_audio_volume(&self, session_id: &str) -> Result<ISimpleAudioVolume> {
+        let session_control = self.get_session(session_id)?;
         let audio_volume: ISimpleAudioVolume = session_control.cast().unwrap();
         Ok(audio_volume)
     }
@@ -210,8 +228,8 @@ impl IMMAudioDevice {
         Ok(volume)
     }
 
-    pub fn get_session_volume(&self, process_id: u32) -> Result<f32> {
-        let audio_volume = self.get_session_audio_volume(process_id)?;
+    pub fn get_session_volume(&self, session_id: &str) -> Result<f32> {
+        let audio_volume = self.get_session_audio_volume(session_id)?;
         let volume = unsafe { audio_volume.GetMasterVolume()? };
 
         Ok(volume)
@@ -223,8 +241,8 @@ impl IMMAudioDevice {
         Ok(mute_state)
     }
 
-    pub fn get_session_mute_state(&self, process_id: u32) -> Result<bool> {
-        let audio_volume = self.get_session_audio_volume(process_id)?;
+    pub fn get_session_mute_state(&self, session_id: &str) -> Result<bool> {
+        let audio_volume = self.get_session_audio_volume(session_id)?;
         let mute_state = unsafe { audio_volume.GetMute()?.as_bool() };
 
         Ok(mute_state)
@@ -239,8 +257,8 @@ impl IMMAudioDevice {
         Ok(())
     }
 
-    pub fn set_session_volume(&self, process_id: u32, volume: f32) -> Result<()> {
-        let audio_volume = self.get_session_audio_volume(process_id)?;
+    pub fn set_session_volume(&self, session_id: &str, volume: f32) -> Result<()> {
+        let audio_volume = self.get_session_audio_volume(session_id)?;
         unsafe {
             audio_volume.SetMasterVolume(volume, std::ptr::null())?;
         }
@@ -256,8 +274,8 @@ impl IMMAudioDevice {
         Ok(())
     }
 
-    pub fn set_session_mute_state(&self, process_id: u32, mute_state: bool) -> Result<()> {
-        let audio_volume = self.get_session_audio_volume(process_id)?;
+    pub fn set_session_mute_state(&self, session_id: &str, mute_state: bool) -> Result<()> {
+        let audio_volume = self.get_session_audio_volume(session_id)?;
         unsafe {
             audio_volume.SetMute(mute_state, std::ptr::null())?;
         }
@@ -273,62 +291,16 @@ impl IMMAudioDevice {
         unsafe { get_process_name_by_id(process_id) }
     }
 
-    /// セッションごとの音量を取得します
-    pub fn get_session_volume_by_name(&self, process_name: &str) -> Result<f32> {
-        for (&pid, _) in &self.session_control_map {
-            if let Ok(name) = self.get_process_name(pid) {
-                if name == process_name {
-                    return self.get_session_volume(pid);
-                }
-            }
-        }
-        Err(anyhow::anyhow!("Process not found: {}", process_name))
-    }
-
-    /// セッションごとの音量を設定します
-    pub fn set_session_volume_by_name(&self, process_name: &str, volume: f32) -> Result<()> {
-        for (&pid, _) in &self.session_control_map {
-            if let Ok(name) = self.get_process_name(pid) {
-                if name == process_name {
-                    return self.set_session_volume(pid, volume);
-                }
-            }
-        }
-        Err(anyhow::anyhow!("Process not found: {}", process_name))
-    }
-
-    /// セッションごとのミュート状態を取得します
-    pub fn get_session_mute_state_by_name(&self, process_name: &str) -> Result<bool> {
-        for (&pid, _) in &self.session_control_map {
-            if let Ok(name) = self.get_process_name(pid) {
-                if name == process_name {
-                    return self.get_session_mute_state(pid);
-                }
-            }
-        }
-        Err(anyhow::anyhow!("Process not found: {}", process_name))
-    }
-
-    /// セッションごとのミュート状態を設定します
-    pub fn set_session_mute_state_by_name(&self, process_name: &str, mute_state: bool) -> Result<()> {
-        for (&pid, _) in &self.session_control_map {
-            if let Ok(name) = self.get_process_name(pid) {
-                if name == process_name {
-                    return self.set_session_mute_state(pid, mute_state);
-                }
-            }
-        }
-        Err(anyhow::anyhow!("Process not found: {}", process_name))
-    }
-
-    pub fn get_session_list(&self) -> Result<Vec<(u32, String, f32, bool)>> {
+    pub fn get_session_list(&self) -> Result<Vec<(String, u32, String, f32, bool)>> {
         let mut session_list = Vec::new();
 
-        for (&pid, _) in &self.session_control_map {
-            if let Ok(name) = self.get_process_name(pid) {
-                let volume = self.get_session_volume(pid).unwrap_or(0.0);
-                let muted = self.get_session_mute_state(pid).unwrap_or(false);
-                session_list.push((pid, name, volume, muted));
+        for (session_id, _) in &self.session_control_map {
+            if let Ok(pid) = self.get_pid(session_id) {
+                if let Ok(name) = self.get_process_name(pid) {
+                    let volume = self.get_session_volume(session_id).unwrap_or(0.0);
+                    let muted = self.get_session_mute_state(session_id).unwrap_or(false);
+                    session_list.push((session_id.clone(), pid, name, volume, muted));
+                }
             }
         }
 
@@ -339,9 +311,10 @@ impl IMMAudioDevice {
 impl Drop for IMMAudioDevice {
     fn drop(&mut self) {
         // セッションイベントの登録解除
-        for (process_id, session_control) in &self.session_control_map {
-            if let Some(session_events) = self.session_events_map.get(process_id) {
-                let _ = unsafe { session_control.UnregisterAudioSessionNotification(session_events) };
+        for (session_id, session_control) in &self.session_control_map {
+            if let Some(session_events) = self.session_events_map.get(session_id) {
+                let _ =
+                    unsafe { session_control.UnregisterAudioSessionNotification(session_events) };
             }
         }
 

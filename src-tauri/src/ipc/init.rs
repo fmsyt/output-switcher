@@ -23,9 +23,9 @@ pub enum IPCHandlers {
     VolumeChange { id: String, volume: f32 },
     MuteStateChange { id: String, muted: bool },
     #[serde(rename_all = "camelCase")]
-    SessionVolumeChange { id: String, process_name: String, volume: f32 },
+    SessionVolumeChange { id: String, session_id: String, volume: f32 },
     #[serde(rename_all = "camelCase")]
-    SessionMuteStateChange { id: String, process_name: String, muted: bool },
+    SessionMuteStateChange { id: String, session_id: String, muted: bool },
 
     AudioSessionDict { id: String },
 }
@@ -202,7 +202,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                         // continue;
                     }
                 }
-                IPCHandlers::SessionVolumeChange { id, process_name, volume } => {
+                IPCHandlers::SessionVolumeChange { id, session_id, volume } => {
                     let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
                         inner: UnexpectedErr::LockError,
                     })?;
@@ -220,16 +220,16 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                     };
 
                     let e = audio
-                        .set_session_volume_by_name(&process_name, volume)
+                        .set_session_volume(&session_id, volume)
                         .map_err(|e| APIError::SomethingWrong {
-                            msg: format!("@audio.set_session_volume_by_name {:?}", e),
+                            msg: format!("@audio.set_session_volume {:?}", e),
                         });
 
                     if let Err(e) = e {
                         log::error!("{:?}", e);
                     }
                 }
-                IPCHandlers::SessionMuteStateChange { id, process_name, muted } => {
+                IPCHandlers::SessionMuteStateChange { id, session_id, muted } => {
                     let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
                         inner: UnexpectedErr::LockError,
                     })?;
@@ -247,9 +247,9 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                     };
 
                     let e = audio
-                        .set_session_mute_state_by_name(&process_name, muted)
+                        .set_session_mute_state(&session_id, muted)
                         .map_err(|e| APIError::SomethingWrong {
-                            msg: format!("@audio.set_session_mute_state_by_name {:?}", e),
+                            msg: format!("@audio.set_session_mute_state {:?}", e),
                         });
 
                     if let Err(e) = e {

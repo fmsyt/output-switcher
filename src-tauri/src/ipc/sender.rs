@@ -15,6 +15,7 @@ pub type AudioDeviceMap = BTreeMap<String, IMMAudioDevice>;
 
 #[derive(serde::Serialize, Debug, Clone)]
 pub struct AudioSessionInfo {
+    pub session_id: String,
     pub process_id: u32,
     pub process_name: String,
     pub volume: f32,
@@ -22,8 +23,9 @@ pub struct AudioSessionInfo {
 }
 
 impl AudioSessionInfo {
-    pub fn from_session(process_id: u32, process_name: String, volume: f32, muted: bool) -> Self {
+    pub fn from_session(session_id: String, process_id: u32, process_name: String, volume: f32, muted: bool) -> Self {
         Self {
+            session_id,
             process_id,
             process_name,
             volume,
