@@ -23,6 +23,8 @@ const eventNames = [
   "PropertyValueChanged",
   "VolumeChanged",
   "SessionVolumeChanged",
+  "SessionCreated",
+  "SessionTerminated",
 ] as const;
 
 export type EventName = typeof eventNames[number];
@@ -52,8 +54,16 @@ export interface SessionVolumeChanged {
   volume: number;
   muted: boolean;
 }
+export interface SessionCreated {
+  type: "SessionCreated";
+  device_id: string;
+}
+export interface SessionTerminated {
+  type: "SessionTerminated";
+  device_id: string;
+}
 
-export type Notify = | DefaultDeviceChanged | DeviceAdded | DeviceRemoved | DeviceStateChanged | PropertyValueChanged | VolumeChanged | SessionVolumeChanged;
+export type Notify = | DefaultDeviceChanged | DeviceAdded | DeviceRemoved | DeviceStateChanged | PropertyValueChanged | VolumeChanged | SessionVolumeChanged | SessionCreated | SessionTerminated;
 
 
 

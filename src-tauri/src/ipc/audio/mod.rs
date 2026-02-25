@@ -13,7 +13,8 @@ use windows::{
         Foundation::{CloseHandle, FALSE},
         Media::Audio::{
             eMultimedia, eRender, Endpoints::IAudioEndpointVolume, IAudioSessionControl,
-            IAudioSessionControl2, IAudioSessionEvents, IAudioSessionManager2, IMMDevice,
+            IAudioSessionControl2, IAudioSessionEvents, IAudioSessionManager2, 
+            IAudioSessionNotification, IMMDevice,
             IMMDeviceEnumerator, ISimpleAudioVolume, MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
         },
         System::{
@@ -141,6 +142,8 @@ pub struct IMMAudioDevice {
     session_pid_map: HashMap<String, u32>,
     session_display_name_map: HashMap<String, String>,
     session_icon_path_map: HashMap<String, String>,
+    session_manager: IAudioSessionManager2,
+    session_notification: IAudioSessionNotification,
 }
 
 unsafe impl Send for IMMAudioDevice {}
@@ -161,7 +164,7 @@ impl IMMAudioDevice {
         let mut session_display_name_map: HashMap<String, String> = HashMap::new();
         let mut session_icon_path_map: HashMap<String, String> = HashMap::new();
 
-        unsafe {
+        let (session_manager, session_notification) = unsafe {
             let session_manager: IAudioSessionManager2 = device.Activate(CLSCTX_ALL, None)?;
             let sessions = session_manager.GetSessionEnumerator()?;
 
@@ -199,7 +202,16 @@ impl IMMAudioDevice {
                 session_display_name_map.insert(session_id.clone(), display_name);
                 session_icon_path_map.insert(session_id, icon_path);
             }
-        }
+            
+            // セッション追加・削除の通知を登録
+            let session_notification = notifier::NotificationCallbacks::create_session_notification_callback(
+                &is.tx,
+                id.clone(),
+            );
+            session_manager.RegisterSessionNotification(&session_notification)?;
+            
+            (session_manager, session_notification)
+        };
 
         is.notification_callbacks
             .register_to_volume(&endpoint_volume)?;
@@ -215,6 +227,8 @@ impl IMMAudioDevice {
             session_pid_map,
             session_display_name_map,
             session_icon_path_map,
+            session_manager,
+            session_notification,
         })
     }
 
@@ -340,6 +354,9 @@ impl IMMAudioDevice {
 
 impl Drop for IMMAudioDevice {
     fn drop(&mut self) {
+        // セッション通知の登録解除
+        let _ = unsafe { self.session_manager.UnregisterSessionNotification(&self.session_notification) };
+        
         // セッションイベントの登録解除
         for (session_id, session_control) in &self.session_control_map {
             if let Some(session_events) = self.session_events_map.get(session_id) {

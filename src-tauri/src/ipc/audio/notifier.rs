@@ -11,7 +11,8 @@ use windows::{
                 IAudioEndpointVolume, IAudioEndpointVolumeCallback,
                 IAudioEndpointVolumeCallback_Impl,
             },
-            IAudioSessionEvents, IAudioSessionEvents_Impl,
+            IAudioSessionControl, IAudioSessionEvents, IAudioSessionEvents_Impl,
+            IAudioSessionNotification, IAudioSessionNotification_Impl,
             IMMDeviceEnumerator, IMMNotificationClient, IMMNotificationClient_Impl,
             AUDIO_VOLUME_NOTIFICATION_DATA, DEVICE_STATE, AudioSessionDisconnectReason,
         },
@@ -52,6 +53,12 @@ pub enum Notification {
         process_id: u32,
         volume: f32,
         muted: bool,
+    },
+    SessionCreated {
+        device_id: String,
+    },
+    SessionTerminated {
+        device_id: String,
     },
 }
 
@@ -247,6 +254,26 @@ impl IAudioSessionEvents_Impl for AudioSessionEventsCallback {
     }
 }
 
+#[implement(IAudioSessionNotification)]
+struct AudioSessionNotificationCallback {
+    tx: Sender<Notification>,
+    device_id: String,
+}
+
+impl IAudioSessionNotification_Impl for AudioSessionNotificationCallback {
+    fn OnSessionCreated(
+        &self,
+        _newsession: Option<&IAudioSessionControl>,
+    ) -> windows::core::Result<()> {
+        self.tx
+            .blocking_send(Notification::SessionCreated {
+                device_id: self.device_id.clone(),
+            })
+            .map_err(|e| to_win_error(e, ERROR_ACCESS_DENIED))?;
+        Ok(())
+    }
+}
+
 pub(crate) struct NotificationCallbacks {
     notification_client: IMMNotificationClient,
     endpoint_volume_callback: IAudioEndpointVolumeCallback,
@@ -261,6 +288,17 @@ impl NotificationCallbacks {
             notification_client,
             endpoint_volume_callback,
         }
+    }
+
+    pub(crate) fn create_session_notification_callback(
+        tx: &Sender<Notification>,
+        device_id: String,
+    ) -> IAudioSessionNotification {
+        AudioSessionNotificationCallback {
+            tx: tx.clone(),
+            device_id,
+        }
+        .into()
     }
 
     pub(crate) fn create_session_events_callback(

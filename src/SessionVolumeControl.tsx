@@ -1,9 +1,11 @@
 import { Box, FormControl, InputLabel, MenuItem, Select, Stack, Typography, } from "@mui/material";
+import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Checkbox from "./component/Checkbox";
 import Slider from "./component/Slider";
 import { invokeQuery } from "./ipc";
+import type { AudioStateChangePayload } from "./types";
 
 interface AudioSessionInfo {
   session_id: string;
@@ -63,10 +65,22 @@ export default function SessionVolumeControl({
 
   useEffect(() => {
     loadSessions();
-    // 定期的にセッションリストを更新
-    const interval = setInterval(loadSessions, 3000);
-    return () => clearInterval(interval);
-  }, [loadSessions]);
+    
+    // セッション変更イベントをリッスン
+    const unlisten = listen<AudioStateChangePayload>("audio_state_change", (event) => {
+      const notification = event.payload.notification;
+      if (notification && 
+          (notification.type === "SessionCreated" || notification.type === "SessionTerminated") &&
+          notification.device_id === deviceId) {
+        console.log("Session change detected:", notification.type);
+        loadSessions();
+      }
+    });
+    
+    return () => {
+      unlisten.then(fn => fn());
+    };
+  }, [deviceId, loadSessions]);
 
   // セッション選択時
   const handleSessionChange = useCallback(
