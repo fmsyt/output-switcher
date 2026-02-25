@@ -139,6 +139,8 @@ pub struct IMMAudioDevice {
     pub(crate) session_control_map: HashMap<String, IAudioSessionControl>,
     session_events_map: HashMap<String, IAudioSessionEvents>,
     session_pid_map: HashMap<String, u32>,
+    session_display_name_map: HashMap<String, String>,
+    session_icon_path_map: HashMap<String, String>,
 }
 
 unsafe impl Send for IMMAudioDevice {}
@@ -156,6 +158,8 @@ impl IMMAudioDevice {
         let mut session_control_map: HashMap<String, IAudioSessionControl> = HashMap::new();
         let mut session_events_map: HashMap<String, IAudioSessionEvents> = HashMap::new();
         let mut session_pid_map: HashMap<String, u32> = HashMap::new();
+        let mut session_display_name_map: HashMap<String, String> = HashMap::new();
+        let mut session_icon_path_map: HashMap<String, String> = HashMap::new();
 
         unsafe {
             let session_manager: IAudioSessionManager2 = device.Activate(CLSCTX_ALL, None)?;
@@ -170,6 +174,18 @@ impl IMMAudioDevice {
                 let session_id_pwstr = session_control2.GetSessionInstanceIdentifier()?;
                 let session_id = session_id_pwstr.to_string()?;
 
+                // セッション表示名を取得
+                let display_name = match session_control.GetDisplayName() {
+                    Ok(name_pwstr) => name_pwstr.to_string().unwrap_or_default(),
+                    Err(_) => String::new(),
+                };
+
+                // セッションアイコンパスを取得
+                let icon_path = match session_control.GetIconPath() {
+                    Ok(path_pwstr) => path_pwstr.to_string().unwrap_or_default(),
+                    Err(_) => String::new(),
+                };
+
                 // セッションイベントコールバックを作成して登録
                 let session_events =
                     notifier::NotificationCallbacks::create_session_events_callback(
@@ -179,7 +195,9 @@ impl IMMAudioDevice {
 
                 session_control_map.insert(session_id.clone(), session_control);
                 session_events_map.insert(session_id.clone(), session_events);
-                session_pid_map.insert(session_id, process_id);
+                session_pid_map.insert(session_id.clone(), process_id);
+                session_display_name_map.insert(session_id.clone(), display_name);
+                session_icon_path_map.insert(session_id, icon_path);
             }
         }
 
@@ -195,6 +213,8 @@ impl IMMAudioDevice {
             session_control_map,
             session_events_map,
             session_pid_map,
+            session_display_name_map,
+            session_icon_path_map,
         })
     }
 
@@ -291,7 +311,15 @@ impl IMMAudioDevice {
         unsafe { get_process_name_by_id(process_id) }
     }
 
-    pub fn get_session_list(&self) -> Result<Vec<(String, u32, String, f32, bool)>> {
+    pub fn get_session_display_name(&self, session_id: &str) -> Option<String> {
+        self.session_display_name_map.get(session_id).cloned()
+    }
+
+    pub fn get_session_icon_path(&self, session_id: &str) -> Option<String> {
+        self.session_icon_path_map.get(session_id).cloned()
+    }
+
+    pub fn get_session_list(&self) -> Result<Vec<(String, u32, String, f32, bool, String, String)>> {
         let mut session_list = Vec::new();
 
         for (session_id, _) in &self.session_control_map {
@@ -299,7 +327,9 @@ impl IMMAudioDevice {
                 if let Ok(name) = self.get_process_name(pid) {
                     let volume = self.get_session_volume(session_id).unwrap_or(0.0);
                     let muted = self.get_session_mute_state(session_id).unwrap_or(false);
-                    session_list.push((session_id.clone(), pid, name, volume, muted));
+                    let display_name = self.get_session_display_name(session_id).unwrap_or_default();
+                    let icon_path = self.get_session_icon_path(session_id).unwrap_or_default();
+                    session_list.push((session_id.clone(), pid, name, volume, muted, display_name, icon_path));
                 }
             }
         }

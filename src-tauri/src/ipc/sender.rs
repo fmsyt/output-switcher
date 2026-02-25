@@ -20,16 +20,20 @@ pub struct AudioSessionInfo {
     pub process_name: String,
     pub volume: f32,
     pub muted: bool,
+    pub display_name: String,
+    pub icon_path: String,
 }
 
 impl AudioSessionInfo {
-    pub fn from_session(session_id: String, process_id: u32, process_name: String, volume: f32, muted: bool) -> Self {
+    pub fn from_session(session_id: String, process_id: u32, process_name: String, volume: f32, muted: bool, display_name: String, icon_path: String) -> Self {
         Self {
             session_id,
             process_id,
             process_name,
             volume,
             muted,
+            display_name,
+            icon_path,
         }
     }
 }

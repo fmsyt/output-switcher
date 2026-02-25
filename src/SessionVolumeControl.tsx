@@ -11,6 +11,8 @@ interface AudioSessionInfo {
   process_name: string;
   volume: number;
   muted: boolean;
+  display_name: string;
+  icon_path: string;
 }
 
 interface SessionVolumeControlProps {
@@ -152,6 +154,7 @@ export default function SessionVolumeControl({
               <MenuItem key={session.session_id} value={session.session_id}>
                 {session.process_id === 0 ? "🔔 " : ""}
                 {session.process_name}
+                {session.display_name && ` - ${session.display_name}`}
               </MenuItem>
             ))}
           </Select>
@@ -163,6 +166,16 @@ export default function SessionVolumeControl({
               <Typography variant="caption" display="block" color="text.secondary">
                 プロセスID: {selectedSession.process_id}
               </Typography>
+              {selectedSession.display_name && (
+                <Typography variant="caption" display="block" color="text.secondary">
+                  表示名: {selectedSession.display_name}
+                </Typography>
+              )}
+              {selectedSession.icon_path && (
+                <Typography variant="caption" display="block" color="text.secondary" sx={{ wordBreak: "break-all" }}>
+                  アイコンパス: {selectedSession.icon_path}
+                </Typography>
+              )}
               <Typography variant="caption" display="block" color="text.secondary" sx={{ wordBreak: "break-all" }}>
                 セッションID: {selectedSession.session_id}
               </Typography>

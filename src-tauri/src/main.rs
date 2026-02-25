@@ -54,7 +54,9 @@ async fn get_audio_sessions(
 
     let session_infos = sessions
         .into_iter()
-        .map(|(session_id, pid, name, volume, muted)| AudioSessionInfo::from_session(session_id, pid, name, volume, muted))
+        .map(|(session_id, pid, name, volume, muted, display_name, icon_path)| {
+            AudioSessionInfo::from_session(session_id, pid, name, volume, muted, display_name, icon_path)
+        })
         .collect();
 
     Ok(session_infos)
