@@ -19,31 +19,35 @@ interface AudioSessionInfo {
   icon_data: string;
 }
 
+// TODO: セッション単位の操作はpidを介して行うようにする
+// TODO: stateの管理はミュート、ボリュームの粒度ではなくてセッション単位で行うようにする
+
 interface SessionVolumeControlProps {
   deviceId: string;
 }
 
-export default function SessionVolumeControl({
-  deviceId,
-}: SessionVolumeControlProps) {
+export default function SessionVolumeControl(props: SessionVolumeControlProps) {
+
+  const { deviceId } = props;
+
   const [sessions, setSessions] = useState<AudioSessionInfo[]>([]);
-  const [selectedSession, setSelectedSession] =
-    useState<AudioSessionInfo | null>(null);
+  const [selectedSession, setSelectedSession] = useState<AudioSessionInfo | null>(null);
   const [volume, setVolume] = useState(0);
   const [muted, setMuted] = useState(false);
 
-  // セッションリストを取得
   const loadSessions = useCallback(async () => {
     try {
-      const sessionList = await invoke<AudioSessionInfo[]>(
-        "get_audio_sessions",
-        { deviceId }
-      );
+      const sessionList = await invoke<AudioSessionInfo[]>("get_audio_sessions", { deviceId });
 
       // システム音（プロセスID 0）を最初に、その後はプロセス名でソート
       const sortedSessions = sessionList.sort((a, b) => {
-        if (a.process_id === 0) return -1;
-        if (b.process_id === 0) return 1;
+        if (a.process_id === 0) {
+          return -1;
+        }
+        if (b.process_id === 0) {
+          return 1;
+        }
+
         return a.process_name.localeCompare(b.process_name);
       });
 
@@ -67,24 +71,22 @@ export default function SessionVolumeControl({
 
   useEffect(() => {
     loadSessions();
-    
-    // セッション変更イベントをリッスン
+
     const unlisten = listen<AudioStateChangePayload>("audio_state_change", (event) => {
       const notification = event.payload.notification;
-      if (notification && 
-          (notification.type === "SessionCreated" || notification.type === "SessionTerminated") &&
-          notification.device_id === deviceId) {
+      if (notification &&
+        (notification.type === "SessionCreated" || notification.type === "SessionTerminated") &&
+        notification.device_id === deviceId) {
         console.log("Session change detected:", notification.type);
         loadSessions();
       }
     });
-    
+
     return () => {
       unlisten.then(fn => fn());
     };
   }, [deviceId, loadSessions]);
 
-  // セッション選択時
   const handleSessionChange = useCallback(
     (sessionId: string) => {
       const session = sessions.find((s) => s.session_id === sessionId);
@@ -145,10 +147,34 @@ export default function SessionVolumeControl({
     [deviceId, selectedSession]
   );
 
+  const displaySoftwareName = useCallback((session: AudioSessionInfo) => {
+
+    if (session.process_id === 0) {
+      return "システム音量";
+    }
+
+    if (session.display_name) {
+      return session.display_name;
+    }
+
+    if (session.process_name) {
+
+      const splitted = session.process_name.split(".");
+      if (splitted.length > 1) {
+        splitted.pop();
+      }
+
+      return splitted.join(".");
+    }
+
+    return "不明なソフトウェア";
+
+  }, [])
+
   return (
     <Box sx={{ mt: 2, p: 2, border: "1px solid #ccc", borderRadius: 1 }}>
       <Typography variant="h6" gutterBottom>
-        ソフトウェア音量コントロール
+        Dead
       </Typography>
 
       <Stack spacing={2}>
@@ -175,8 +201,7 @@ export default function SessionVolumeControl({
                     <span>{session.process_id === 0 ? "🔔" : "📦"}</span>
                   )}
                   <span>
-                    {session.process_name}
-                    {session.display_name && ` - ${session.display_name}`}
+                    {displaySoftwareName(session)}
                   </span>
                 </Stack>
               </MenuItem>
@@ -191,7 +216,7 @@ export default function SessionVolumeControl({
                 <Box sx={{ mb: 1, display: "flex", alignItems: "center", gap: 1 }}>
                   <img src={selectedSession.icon_data} alt="Application Icon" style={{ width: 32, height: 32 }} />
                   <Typography variant="body2" fontWeight="bold">
-                    {selectedSession.process_name}
+                    {displaySoftwareName(selectedSession)}
                   </Typography>
                 </Box>
               )}
