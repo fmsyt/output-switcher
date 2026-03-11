@@ -32,6 +32,7 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
 
   const [sessions, setSessions] = useState<AudioSessionInfo[]>([]);
   const [selectedSession, setSelectedSession] = useState<AudioSessionInfo | null>(null);
+  const selectedSessionIdRef = useRef<string | null>(null);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -52,9 +53,9 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
       setSessions(sortedSessions);
 
       // 現在選択中のセッションが存在する場合、最新の情報で更新
-      if (selectedSession) {
+      if (selectedSessionIdRef.current) {
         const updated = sortedSessions.find(
-          (s) => s.session_id === selectedSession.session_id
+          (s) => s.session_id === selectedSessionIdRef.current
         );
         if (updated) {
           setSelectedSession(updated);
@@ -63,7 +64,7 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
     } catch (error) {
       console.error("Failed to load sessions:", error);
     }
-  }, [deviceId, selectedSession]);
+  }, [deviceId]);
 
   useEffect(() => {
     loadSessions();
@@ -87,6 +88,7 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
     (sessionId: string) => {
       const session = sessions.find((s) => s.session_id === sessionId);
       if (session) {
+        selectedSessionIdRef.current = session.session_id;
         setSelectedSession(session);
       }
     },
@@ -118,7 +120,7 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
   const handleVolumeChange = useCallback(
     (_event: Event, newValue: number | number[]) => {
       if (!selectedSession) return;
-      
+
       const volumeValue = newValue as number;
       // UIの即時更新のためにセッション情報を更新
       setSelectedSession({ ...selectedSession, volume: volumeValue });
