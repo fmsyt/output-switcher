@@ -32,8 +32,6 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
 
   const [sessions, setSessions] = useState<AudioSessionInfo[]>([]);
   const [selectedSession, setSelectedSession] = useState<AudioSessionInfo | null>(null);
-  const [volume, setVolume] = useState(0);
-  const [muted, setMuted] = useState(false);
 
   const loadSessions = useCallback(async () => {
     try {
@@ -60,8 +58,6 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
         );
         if (updated) {
           setSelectedSession(updated);
-          setVolume(updated.volume);
-          setMuted(updated.muted);
         }
       }
     } catch (error) {
@@ -92,8 +88,6 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
       const session = sessions.find((s) => s.session_id === sessionId);
       if (session) {
         setSelectedSession(session);
-        setVolume(session.volume);
-        setMuted(session.muted);
       }
     },
     [sessions]
@@ -123,11 +117,14 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
 
   const handleVolumeChange = useCallback(
     (_event: Event, newValue: number | number[]) => {
+      if (!selectedSession) return;
+      
       const volumeValue = newValue as number;
-      setVolume(volumeValue);
+      // UIの即時更新のためにセッション情報を更新
+      setSelectedSession({ ...selectedSession, volume: volumeValue });
       invokeChangeVolume(volumeValue);
     },
-    [invokeChangeVolume]
+    [selectedSession, invokeChangeVolume]
   );
 
   const handleMuteChange = useCallback(
@@ -135,7 +132,8 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
       if (!selectedSession) return;
 
       const newMuted = event.target.checked;
-      setMuted(newMuted);
+      // UIの即時更新のためにセッション情報を更新
+      setSelectedSession({ ...selectedSession, muted: newMuted });
 
       await invokeQuery({
         kind: "SessionMuteStateChange",
@@ -248,17 +246,17 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
                 音量:
               </Typography>
               <Slider
-                value={volume}
+                value={selectedSession.volume}
                 onChange={handleVolumeChange}
                 min={0}
                 max={1}
                 step={0.01}
-                disabled={muted}
+                disabled={selectedSession.muted}
                 size="small"
                 sx={{ flexGrow: 1 }}
               />
               <Typography variant="body2" sx={{ minWidth: 40 }}>
-                {Math.round(volume * 100)}
+                {Math.round(selectedSession.volume * 100)}
               </Typography>
             </Stack>
 
@@ -267,7 +265,7 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
                 ミュート:
               </Typography>
               <Checkbox
-                checked={muted}
+                checked={selectedSession.muted}
                 onChange={handleMuteChange}
                 size="small"
               />
