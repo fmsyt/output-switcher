@@ -14,7 +14,7 @@ tauri-build = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 log = "0.4.21"
-tokio = { version = "1.37.0", features = ["full"] }
+tokio = { version = "1.37.0", features = ["rt-multi-thread", "macros"] }
 anyhow = "1.0.81"
 thiserror = "1.0.58"
 windows-interface = "0.53.0"
@@ -33,19 +33,19 @@ features = ["image-ico", "image-png", "tray-icon"]
 [dependencies.windows]
 version = "0.54.0"
 features = [
-    "Win32_System_Com",
-    "Win32_Media_Audio",
-    "Win32_Media_Audio_Endpoints",
-    "Win32_UI_Shell_PropertiesSystem",
-    "Win32_UI_Shell",
-    "Win32_Foundation",
-    "Win32_System_Com_StructuredStorage",
-    "Win32_System_ProcessStatus",
-    "Win32_System_Threading",
-    "Win32_Devices_FunctionDiscovery",
-    "Win32_UI_WindowsAndMessaging",
-    "Win32_Graphics_Gdi",
-    "implement",
+  "Win32_System_Com",
+  "Win32_Media_Audio",
+  "Win32_Media_Audio_Endpoints",
+  "Win32_UI_Shell_PropertiesSystem",
+  "Win32_UI_Shell",
+  "Win32_Foundation",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_ProcessStatus",
+  "Win32_System_Threading",
+  "Win32_Devices_FunctionDiscovery",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_Graphics_Gdi",
+  "implement",
 ]
 
 
