@@ -2,11 +2,11 @@ use anyhow::Result;
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;
 use windows::Win32::{
-    Graphics::Gdi::{DeleteObject, GetDIBits, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS},
-    UI::Shell::{ExtractIconExW},
-    UI::WindowsAndMessaging::{
-        DestroyIcon, GetIconInfo, HICON, ICONINFO,
+    Graphics::Gdi::{
+        DeleteObject, GetDIBits, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
     },
+    UI::Shell::ExtractIconExW,
+    UI::WindowsAndMessaging::{DestroyIcon, GetIconInfo, HICON, ICONINFO},
 };
 
 pub fn extract_icon_as_base64(exe_path: &str, size: u32) -> Result<String> {
@@ -55,6 +55,65 @@ pub fn extract_icon_as_base64(exe_path: &str, size: u32) -> Result<String> {
     }
 }
 
+pub fn extract_system_icon(size: u32) -> Result<String> {
+    // Windowsのシステムサウンドアイコンを取得
+    // shell32.dllから音量/スピーカーアイコンを抽出
+    let system_dll = if let Ok(path) = std::env::var("SystemRoot") {
+        format!("{}\\System32\\mmres.dll", path)
+    } else {
+        "C:\\Windows\\System32\\mmres.dll".to_string()
+    };
+
+    // mmres.dllにはオーディオ関連のアイコンが含まれている
+    // インデックス3がスピーカーアイコン
+    extract_icon_from_resource(&system_dll, 3, size).or_else(|_| {
+        // フォールバック: shell32.dllから取得
+        let shell32 = if let Ok(path) = std::env::var("SystemRoot") {
+            format!("{}\\System32\\shell32.dll", path)
+        } else {
+            "C:\\Windows\\System32\\shell32.dll".to_string()
+        };
+        extract_icon_from_resource(&shell32, 120, size)
+    })
+}
+
+fn extract_icon_from_resource(dll_path: &str, icon_index: i32, size: u32) -> Result<String> {
+    let wide_path: Vec<u16> = OsStr::new(dll_path)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
+    unsafe {
+        let mut large_icon = HICON::default();
+        let mut small_icon = HICON::default();
+
+        let count = ExtractIconExW(
+            windows::core::PCWSTR(wide_path.as_ptr()),
+            icon_index,
+            Some(&mut large_icon as *mut _),
+            Some(&mut small_icon as *mut _),
+            1,
+        );
+
+        if count == 0 {
+            return Err(anyhow::anyhow!("No icon found in resource"));
+        }
+
+        let icon = if size > 16 { large_icon } else { small_icon };
+
+        if icon.is_invalid() {
+            return Err(anyhow::anyhow!("Invalid icon handle"));
+        }
+
+        let result = icon_to_base64(icon);
+
+        let _ = DestroyIcon(large_icon);
+        let _ = DestroyIcon(small_icon);
+
+        result
+    }
+}
+
 unsafe fn icon_to_base64(icon: HICON) -> Result<String> {
     // アイコン情報を取得
     let mut icon_info = ICONINFO::default();
@@ -81,7 +140,9 @@ unsafe fn icon_to_base64(icon: HICON) -> Result<String> {
 
 unsafe fn bitmap_to_png(bitmap: windows::Win32::Graphics::Gdi::HBITMAP) -> Result<Vec<u8>> {
     use std::mem;
-    use windows::Win32::Graphics::Gdi::{CreateCompatibleDC, GetObjectW, SelectObject, DeleteDC, BITMAP};
+    use windows::Win32::Graphics::Gdi::{
+        CreateCompatibleDC, DeleteDC, GetObjectW, SelectObject, BITMAP,
+    };
 
     // ビットマップ情報を取得
     let mut bmp = BITMAP::default();
