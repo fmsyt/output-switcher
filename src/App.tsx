@@ -56,14 +56,7 @@ function Container() {
 
   const sessionControlRef = useRef<HTMLDivElement>(null);
 
-  const audioState = useWindowsAudioState();
-  const defaultDevice = useMemo(() => {
-    if (!audioState?.default) {
-      return null;
-    }
-
-    return audioState.audioDeviceList.find(device => device.id === audioState.default);
-  }, [audioState?.default, audioState?.audioDeviceList]);
+  const { audioDeviceList, defaultDevice } = useWindowsAudioState();
 
 
   useEffect(() => {
@@ -87,7 +80,7 @@ function Container() {
             <Meter
               device={defaultDevice}
               defaultVolume={defaultDevice.volume}
-              deviceList={audioState?.audioDeviceList}
+              deviceList={audioDeviceList}
             />
             <div ref={sessionControlRef}>
               <SessionVolumeControl deviceId={defaultDevice.id} />
