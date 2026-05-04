@@ -6,13 +6,13 @@ import { type QueryKind, invokeQuery } from "./ipc";
 import type { AudioDeviceInfo } from "./contexts/audio/types";
 
 type Props = {
-  device: AudioDeviceInfo;
+  defaultDevice: AudioDeviceInfo | null;
   deviceList?: AudioDeviceInfo[];
 }
 
 export default function useRegisterContextMenu(props: Props) {
 
-  const { device, deviceList } = props;
+  const { defaultDevice: device, deviceList } = props;
 
   const handlePopup = useCallback(async () => {
 
@@ -21,9 +21,10 @@ export default function useRegisterContextMenu(props: Props) {
     }
 
     const items = await Promise.all(deviceList.map((d) => {
+
       return CheckMenuItem.new({
         text: d.name,
-        checked: d.id === device.id,
+        checked: d.id === device?.id,
         action: async () => {
           const kind: QueryKind = "DefaultAudioChange";
           await invokeQuery({ kind, id: d.id });

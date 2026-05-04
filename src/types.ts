@@ -1,4 +1,4 @@
-import { AudioDeviceInfo } from "./contexts/audio/types";
+import type { AudioDeviceInfo } from "./contexts/audio/types";
 
 
 export interface MeterProps {

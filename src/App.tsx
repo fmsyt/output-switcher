@@ -1,13 +1,16 @@
 import { Card, CardContent, CircularProgress, CssBaseline, Stack } from "@mui/material";
+import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
+import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useContext, useEffect, useMemo, useRef } from "react";
+import { useContext, useEffect, useRef } from "react";
 import Meter from "./Meter";
 import SessionVolumeControl from "./SessionVolumeControl";
 import ThemeProvider from "./ThemeProvider";
 import DraggingContext from "./effect/dragging/DraggingContext";
 import DraggingProvider from "./effect/dragging/DraggingProvider";
 import useWindowsAudioState from "./useWindowsAudioState";
+import useRegisterContextMenu from "./useRegisterContextMenu";
 
 function App() {
 
@@ -34,6 +37,25 @@ function App() {
 
     // mainWindow.setMinSize(minSize);
     // mainWindow.setMaxSize(maxSize);
+
+  }, [])
+
+  useEffect(() => {
+
+    let unListen: UnlistenFn | undefined = undefined;
+
+    (async () => {
+      const unListenQuit = await listen("quit", () => invoke("quit"));
+
+      unListen = () => {
+        unListenQuit();
+      }
+
+    })();
+
+    return () => {
+      unListen?.();
+    }
 
   }, [])
 
@@ -70,6 +92,16 @@ function Container() {
       }
     };
   }, [addIgnoreDragTarget, removeIgnoreDragTarget]);
+
+
+  const handleContextMenu = useRegisterContextMenu({ defaultDevice: defaultDevice, deviceList: audioDeviceList });
+  useEffect(() => {
+    window.addEventListener("contextmenu", handleContextMenu);
+
+    return () => {
+      window.removeEventListener("contextmenu", handleContextMenu);
+    }
+  }, [handleContextMenu])
 
 
   return (

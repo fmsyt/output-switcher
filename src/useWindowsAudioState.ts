@@ -1,12 +1,13 @@
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { AudioDeviceInfo } from "./contexts/audio/types";
 import { invokeQuery } from "./ipc";
-import { AudioStateChangePayload, WindowsAudioState } from "./ipc/types";
+import type { AudioStateChangePayload, WindowsAudioState } from "./ipc/types";
 
 const useWindowsAudioState = () => {
 
   const [initializing, setInitializing] = useState(true);
-  const [audioState, setAudioState] = useState<WindowsAudioState | null>(null);
+  const [audioState, setAudioState] = useState<WindowsAudioState>();
 
   const initializeAsyncFn = useRef<(() => Promise<void>) | null>(null);
 
@@ -25,13 +26,11 @@ const useWindowsAudioState = () => {
         invokeQuery({ kind: "Channels" }),
       ]);
 
-      results.forEach((result) => {
-        if (result.status !== "rejected") {
-          return;
+      for (const result of results) {
+        if (result.status === "rejected") {
+          console.error("Failed to initialize audio state", result.reason);
         }
-
-        console.error("Failed to initialize audio state", result.reason);
-      })
+      }
     };
 
     initializeAsyncFn.current().finally(() => {
@@ -41,12 +40,13 @@ const useWindowsAudioState = () => {
 
   const audioDeviceList = useMemo(() => audioState?.audioDeviceList ?? [], [audioState?.audioDeviceList]);
 
-  const defaultDevice = useMemo(() => {
+  const defaultDevice = useMemo<AudioDeviceInfo | null>(() => {
     if (!audioState?.default) {
       return null;
     }
 
-    return audioDeviceList.find(device => device.id === audioState.default);
+    const device = audioDeviceList.find(device => device.id === audioState.default);
+    return device ?? null;
   }, [audioState?.default, audioDeviceList]);
 
   return {

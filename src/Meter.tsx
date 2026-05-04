@@ -2,8 +2,7 @@ import VolumeMuteIcon from '@mui/icons-material/VolumeMute';
 import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import { Grid, IconButton, Stack, Typography } from "@mui/material";
-import { invoke } from "@tauri-apps/api/core";
-import { type UnlistenFn, listen } from "@tauri-apps/api/event";
+import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Slider from './component/Slider';
 import useDragging from './effect/dragging/useDragging';
@@ -34,24 +33,6 @@ export default function Meter(props: MeterProps) {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const sliderRef = useRef<HTMLSpanElement | null>(null);
 
-  useEffect(() => {
-
-    let unListen: UnlistenFn | undefined = undefined;
-
-    (async () => {
-      const unListenQuit = await listen("quit", () => invoke("quit"));
-
-      unListen = () => {
-        unListenQuit();
-      }
-
-    })();
-
-    return () => {
-      unListen?.();
-    }
-
-  }, [])
 
   useEffect(() => {
     const { addIgnoreDragTarget, removeIgnoreDragTarget } = ignoreDragContext;
@@ -159,16 +140,6 @@ export default function Meter(props: MeterProps) {
   }, [device, muted]);
 
 
-
-  const handleContextMenu = useRegisterContextMenu({ device, deviceList });
-
-  useEffect(() => {
-    window.addEventListener("contextmenu", handleContextMenu);
-
-    return () => {
-      window.removeEventListener("contextmenu", handleContextMenu);
-    }
-  }, [handleContextMenu]);
 
 
   const displayVolume = useCallback((v: number) => Math.round(v * 100), []);
