@@ -1,23 +1,10 @@
 import { Box, FormControl, InputLabel, MenuItem, Select, Stack, Typography, } from "@mui/material";
-import { listen } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Checkbox from "./component/Checkbox";
 import Slider from "./component/Slider";
-import { invokeQuery } from "./ipc";
-import type { AudioStateChangePayload } from "./ipc/types";
+import type { AudioSessionInfo } from "./contexts/audio/types";
+import useAudioSessions from "./contexts/useAudioSessions";
 
-interface AudioSessionInfo {
-  session_id: string;
-  process_id: number;
-  process_name: string;
-  volume: number;
-  muted: boolean;
-  display_name: string;
-  icon_path: string;
-  exe_path: string;
-  icon_data: string;
-}
 
 // TODO: セッション単位の操作はpidを介して行うようにする
 // TODO: stateの管理はミュート、ボリュームの粒度ではなくてセッション単位で行うようにする
@@ -30,59 +17,23 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
 
   const { deviceId } = props;
 
-  const [sessions, setSessions] = useState<AudioSessionInfo[]>([]);
   const [selectedSession, setSelectedSession] = useState<AudioSessionInfo | null>(null);
   const selectedSessionIdRef = useRef<string | null>(null);
 
-  const loadSessions = useCallback(async () => {
-    try {
-      const sessionList = await invoke<AudioSessionInfo[]>("get_audio_sessions", { deviceId });
-
-      // システム音（プロセスID 0）を最初に、その後はプロセス名でソート
-      const sortedSessions = sessionList.sort((a, b) => {
-        if (a.process_id === 0) {
-          return -1;
-        }
-        if (b.process_id === 0) {
-          return 1;
-        }
-
-        return a.process_name.localeCompare(b.process_name);
-      });
-
-      setSessions(sortedSessions);
-
+  const { sessions, invokeChangeMute, invokeChangeVolume } = useAudioSessions({
+    deviceId,
+    onSessionsChange: (sessions) => {
       // 現在選択中のセッションが存在する場合、最新の情報で更新
       if (selectedSessionIdRef.current) {
-        const updated = sortedSessions.find(
+        const updated = sessions.find(
           (s) => s.session_id === selectedSessionIdRef.current
         );
         if (updated) {
           setSelectedSession(updated);
         }
       }
-    } catch (error) {
-      console.error("Failed to load sessions:", error);
-    }
-  }, [deviceId]);
-
-  useEffect(() => {
-    loadSessions();
-
-    const unlisten = listen<AudioStateChangePayload>("audio_state_change", (event) => {
-      const notification = event.payload.notification;
-      if (notification &&
-        (notification.type === "SessionCreated" || notification.type === "SessionTerminated") &&
-        notification.device_id === deviceId) {
-        console.log("Session change detected:", notification.type);
-        loadSessions();
-      }
-    });
-
-    return () => {
-      unlisten.then(fn => fn());
-    };
-  }, [deviceId, loadSessions]);
+    },
+  });
 
   const handleSessionChange = useCallback(
     (sessionId: string) => {
@@ -95,36 +46,15 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
     [sessions]
   );
 
-  // 音量変更のデバウンス用
-  const handlerIdRef = useRef<number | null>(null);
-  const invokeChangeVolume = useCallback(
-    async (newVolume: number) => {
-      if (!selectedSession) return;
-
-      if (handlerIdRef.current !== null) {
-        clearTimeout(handlerIdRef.current);
-      }
-
-      handlerIdRef.current = window.setTimeout(async () => {
-        await invokeQuery({
-          kind: "SessionVolumeChange",
-          id: deviceId,
-          sessionId: selectedSession.session_id,
-          volume: newVolume,
-        });
-      }, 10);
-    },
-    [deviceId, selectedSession]
-  );
-
   const handleVolumeChange = useCallback(
     (_event: Event, newValue: number | number[]) => {
       if (!selectedSession) return;
 
+      const sessionId = selectedSession.session_id;
       const volumeValue = newValue as number;
       // UIの即時更新のためにセッション情報を更新
       setSelectedSession({ ...selectedSession, volume: volumeValue });
-      invokeChangeVolume(volumeValue);
+      invokeChangeVolume(sessionId, volumeValue);
     },
     [selectedSession, invokeChangeVolume]
   );
@@ -133,18 +63,14 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       if (!selectedSession) return;
 
+      const sessionId = selectedSession.session_id;
       const newMuted = event.target.checked;
       // UIの即時更新のためにセッション情報を更新
       setSelectedSession({ ...selectedSession, muted: newMuted });
 
-      await invokeQuery({
-        kind: "SessionMuteStateChange",
-        id: deviceId,
-        sessionId: selectedSession.session_id,
-        muted: newMuted,
-      });
+      invokeChangeMute(sessionId, newMuted);
     },
-    [deviceId, selectedSession]
+    [selectedSession, invokeChangeMute]
   );
 
   const displaySoftwareName = useCallback((session: AudioSessionInfo) => {
@@ -248,7 +174,9 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
                 音量:
               </Typography>
               <Slider
+                key={selectedSession.session_id} // セッションが切り替わったときに状態をリセットするためのキー
                 value={selectedSession.volume}
+                // defaultValue={selectedSession.volume}
                 onChange={handleVolumeChange}
                 min={0}
                 max={1}
@@ -267,7 +195,9 @@ export default function SessionVolumeControl(props: SessionVolumeControlProps) {
                 ミュート:
               </Typography>
               <Checkbox
-                checked={selectedSession.muted}
+                key={selectedSession.session_id} // セッションが切り替わったときに状態をリセットするためのキー
+                // checked={selectedSession.muted}
+                defaultChecked={selectedSession.muted}
                 onChange={handleMuteChange}
                 size="small"
               />

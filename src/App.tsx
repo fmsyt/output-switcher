@@ -11,6 +11,7 @@ import DraggingContext from "./effect/dragging/DraggingContext";
 import DraggingProvider from "./effect/dragging/DraggingProvider";
 import useWindowsAudioState from "./useWindowsAudioState";
 import useRegisterContextMenu from "./useRegisterContextMenu";
+import SessionControl from "./component/SessionControl";
 
 function App() {
 
@@ -80,6 +81,10 @@ function Container() {
 
   const { audioDeviceList, defaultDevice } = useWindowsAudioState();
 
+  useEffect(() => {
+    console.log("Default device changed:", defaultDevice);
+  }, [defaultDevice])
+
 
   useEffect(() => {
     if (sessionControlRef.current) {
@@ -116,6 +121,13 @@ function Container() {
             />
             <div ref={sessionControlRef}>
               <SessionVolumeControl deviceId={defaultDevice.id} />
+
+              {defaultDevice?.sessions?.map((session) => (
+                <SessionControl
+                  key={session.id}
+                  audioSession={session}
+                />
+              ))}
             </div>
           </>
         )}

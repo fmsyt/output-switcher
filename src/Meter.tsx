@@ -8,7 +8,6 @@ import Slider from './component/Slider';
 import useDragging from './effect/dragging/useDragging';
 import { invokeQuery } from "./ipc";
 import type { MeterProps } from "./types";
-import useRegisterContextMenu from './useRegisterContextMenu';
 
 const volumeStep = 0.01;
 
@@ -47,7 +46,7 @@ export default function Meter(props: MeterProps) {
 
   }, [ignoreDragContext])
 
-  const { device, defaultVolume, deviceList } = props;
+  const { device, defaultVolume } = props;
 
   const [volume, setVolume] = useState(device.volume || 0);
   const [muted, setMuted] = useState(device.muted);
