@@ -1,9 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AudioSessionInfo } from "./audio/types";
+import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invokeQuery } from "../ipc";
 import { AudioStateChangePayload } from "../ipc/types";
-import { listen } from "@tauri-apps/api/event";
+import type { AudioSessionInfo } from "./audio/types";
 
 type Props = {
   deviceId: string;
@@ -34,38 +34,45 @@ export default function useAudioSessions(props: Props) {
 
   const [sessions, setSessions] = useState<AudioSessionInfo[]>([]);
 
+  const onSessionsChangeRef = useRef(props.onSessionsChange);
   useEffect(() => {
+    onSessionsChangeRef.current = props.onSessionsChange;
+  }, [props.onSessionsChange]);
+
+  useEffect(() => {
+
+    console.log("Loading audio sessions for device:", deviceId);
 
     const loader = async () => {
       const sessionList = await loadSessions(deviceId);
       setSessions(sessionList);
 
-      props.onSessionsChange?.(sessionList);
+      onSessionsChangeRef.current?.(sessionList);
     }
 
     loader();
 
-    // const unlisten = listen<AudioStateChangePayload>("audio_state_change", (event) => {
-    //   const notification = event.payload.notification;
-    //   if (!notification) {
-    //     return;
-    //   }
-    //
-    //   if (
-    //     (notification.type === "SessionCreated" || notification.type === "SessionTerminated")
-    //     && notification.device_id === deviceId
-    //   ) {
-    //     console.log("Session change detected:", notification.type);
-    //
-    //     loader();
-    //   }
-    // });
-    //
-    // return () => {
-    //   unlisten.then(fn => fn());
-    // };
+    const unlisten = listen<AudioStateChangePayload>("audio_state_change", (event) => {
+      const notification = event.payload.notification;
+      if (!notification) {
+        return;
+      }
 
-  }, [deviceId, props.onSessionsChange])
+      if (
+        (notification.type === "SessionCreated" || notification.type === "SessionTerminated")
+        && notification.device_id === deviceId
+      ) {
+        console.log("Session change detected:", notification.type);
+
+        loader();
+      }
+    });
+
+    return () => {
+      unlisten.then(fn => fn());
+    };
+
+  }, [deviceId])
 
   const invokeChangeMute = useCallback(async (sessionId: AudioSessionInfo["session_id"], muted: boolean) => {
     await invokeQuery({

@@ -244,10 +244,10 @@ impl IAudioSessionEvents_Impl for AudioSessionEventsCallback {
         &self,
         newstate: windows::Win32::Media::Audio::AudioSessionState,
     ) -> windows::core::Result<()> {
-        use windows::Win32::Media::Audio::{AudioSessionStateExpired, AudioSessionStateInactive};
+        use windows::Win32::Media::Audio::AudioSessionStateExpired;
 
-        // セッションが非アクティブまたは期限切れになった場合も通知
-        if newstate == AudioSessionStateInactive || newstate == AudioSessionStateExpired {
+        // セッションが期限切れになった場合のみ通知（プロセス終了時）
+        if newstate == AudioSessionStateExpired {
             self.tx
                 .blocking_send(Notification::SessionTerminated {
                     device_id: self.device_id.clone(),

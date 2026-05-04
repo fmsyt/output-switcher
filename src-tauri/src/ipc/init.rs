@@ -87,20 +87,18 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
         while let Some(q) = query_rx.recv().await {
 
             #[cfg(debug_assertions)]
-            {
-                println!("IPC query: {:?}", q);
-            }
+            println!("Received IPC query: {:?}", q);
 
             match q {
                 IPCHandlers::AudioDictUpdate { notification } => {
                     use super::audio::notifier::Notification;
-                    
+
                     // SessionCreated または SessionTerminated の場合は辞書を更新
                     let should_update_dict = matches!(
                         notification,
                         Notification::SessionCreated { .. } | Notification::SessionTerminated { .. }
                     );
-                    
+
                     if should_update_dict {
                         let mut dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
                             inner: UnexpectedErr::LockError,
@@ -110,7 +108,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                                 msg: format!("@get_audio_dict {:?}", e),
                             })?;
                     }
-                    
+
                     let e =
                         ipc_sender(&is, &audio_dict, Some(notification), &frontend_update_tx).await;
 
