@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Checkbox from "./component/Checkbox";
 import Slider from "./component/Slider";
 import { invokeQuery } from "./ipc";
-import type { AudioStateChangePayload } from "./types";
+import type { AudioStateChangePayload } from "./ipc/types";
 
 interface AudioSessionInfo {
   session_id: string;

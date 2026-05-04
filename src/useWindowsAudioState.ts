@@ -1,7 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invokeQuery } from "./ipc";
-import type { AudioStateChangePayload, WindowsAudioState } from "./types";
+import { AudioStateChangePayload, WindowsAudioState } from "./ipc/types";
 
 const useWindowsAudioState = () => {
 

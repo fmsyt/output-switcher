@@ -3,7 +3,7 @@ import { CheckMenuItem, Menu, MenuItem } from "@tauri-apps/api/menu";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useCallback } from "react";
 import { type QueryKind, invokeQuery } from "./ipc";
-import type { AudioDeviceInfo } from "./types";
+import type { AudioDeviceInfo } from "./contexts/audio/types";
 
 type Props = {
   device: AudioDeviceInfo;
