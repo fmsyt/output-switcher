@@ -8,8 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "lint": "prettier --check src",
-    "format": "prettier --write src"
+    "lint": "biome check src",
+    "format": "biome format src"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
