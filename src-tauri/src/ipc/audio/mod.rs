@@ -13,9 +13,9 @@ use windows::{
         Foundation::{CloseHandle, FALSE},
         Media::Audio::{
             eMultimedia, eRender, Endpoints::IAudioEndpointVolume, IAudioSessionControl,
-            IAudioSessionControl2, IAudioSessionEvents, IAudioSessionManager2, 
-            IAudioSessionNotification, IMMDevice,
-            IMMDeviceEnumerator, ISimpleAudioVolume, MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
+            IAudioSessionControl2, IAudioSessionEvents, IAudioSessionManager2,
+            IAudioSessionNotification, IMMDevice, IMMDeviceEnumerator, ISimpleAudioVolume,
+            MMDeviceEnumerator, DEVICE_STATE_ACTIVE,
         },
         System::{
             Com::{
@@ -24,8 +24,8 @@ use windows::{
             },
             ProcessStatus::GetModuleBaseNameW,
             Threading::{
-                OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, 
-                PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ
+                OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
+                PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
             },
         },
     },
@@ -177,7 +177,7 @@ impl IMMAudioDevice {
                 let session_control: IAudioSessionControl = sessions.GetSession(i)?;
                 let session_control2: IAudioSessionControl2 = session_control.cast().unwrap();
                 let process_id = session_control2.GetProcessId()?;
-                
+
                 // セッションインスタンスIDを取得
                 let session_id_pwstr = session_control2.GetSessionInstanceIdentifier()?;
                 let session_id = session_id_pwstr.to_string()?;
@@ -204,7 +204,9 @@ impl IMMAudioDevice {
                 // セッションイベントコールバックを作成して登録
                 let session_events =
                     notifier::NotificationCallbacks::create_session_events_callback(
-                        &is.tx, process_id,
+                        &is.tx,
+                        process_id,
+                        id.clone(),
                     );
                 session_control.RegisterAudioSessionNotification(&session_events)?;
 
@@ -215,14 +217,15 @@ impl IMMAudioDevice {
                 session_icon_path_map.insert(session_id.clone(), icon_path);
                 session_exe_path_map.insert(session_id, exe_path);
             }
-            
+
             // セッション追加・削除の通知を登録
-            let session_notification = notifier::NotificationCallbacks::create_session_notification_callback(
-                &is.tx,
-                id.clone(),
-            );
+            let session_notification =
+                notifier::NotificationCallbacks::create_session_notification_callback(
+                    &is.tx,
+                    id.clone(),
+                );
             session_manager.RegisterSessionNotification(&session_notification)?;
-            
+
             (session_manager, session_notification)
         };
 
@@ -247,13 +250,16 @@ impl IMMAudioDevice {
     }
 
     pub(crate) fn get_session(&self, session_id: &str) -> Result<IAudioSessionControl> {
-        let session_control = self.session_control_map.get(session_id)
+        let session_control = self
+            .session_control_map
+            .get(session_id)
             .ok_or_else(|| anyhow::anyhow!("Session not found: {}", session_id))?;
         Ok(session_control.clone())
     }
 
     pub(crate) fn get_pid(&self, session_id: &str) -> Result<u32> {
-        self.session_pid_map.get(session_id)
+        self.session_pid_map
+            .get(session_id)
             .copied()
             .ok_or_else(|| anyhow::anyhow!("Session not found: {}", session_id))
     }
@@ -351,7 +357,9 @@ impl IMMAudioDevice {
         self.session_exe_path_map.get(session_id).cloned()
     }
 
-    pub fn get_session_list(&self) -> Result<Vec<(String, u32, String, f32, bool, String, String, String)>> {
+    pub fn get_session_list(
+        &self,
+    ) -> Result<Vec<(String, u32, String, f32, bool, String, String, String)>> {
         let mut session_list = Vec::new();
 
         for (session_id, _) in &self.session_control_map {
@@ -359,10 +367,21 @@ impl IMMAudioDevice {
                 if let Ok(name) = self.get_process_name(pid) {
                     let volume = self.get_session_volume(session_id).unwrap_or(0.0);
                     let muted = self.get_session_mute_state(session_id).unwrap_or(false);
-                    let display_name = self.get_session_display_name(session_id).unwrap_or_default();
+                    let display_name = self
+                        .get_session_display_name(session_id)
+                        .unwrap_or_default();
                     let icon_path = self.get_session_icon_path(session_id).unwrap_or_default();
                     let exe_path = self.get_session_exe_path(session_id).unwrap_or_default();
-                    session_list.push((session_id.clone(), pid, name, volume, muted, display_name, icon_path, exe_path));
+                    session_list.push((
+                        session_id.clone(),
+                        pid,
+                        name,
+                        volume,
+                        muted,
+                        display_name,
+                        icon_path,
+                        exe_path,
+                    ));
                 }
             }
         }
@@ -374,8 +393,11 @@ impl IMMAudioDevice {
 impl Drop for IMMAudioDevice {
     fn drop(&mut self) {
         // セッション通知の登録解除
-        let _ = unsafe { self.session_manager.UnregisterSessionNotification(&self.session_notification) };
-        
+        let _ = unsafe {
+            self.session_manager
+                .UnregisterSessionNotification(&self.session_notification)
+        };
+
         // セッションイベントの登録解除
         for (session_id, session_control) in &self.session_control_map {
             if let Some(session_events) = self.session_events_map.get(session_id) {
@@ -416,11 +438,7 @@ unsafe fn get_process_name_by_id(process_id: u32) -> Result<String> {
 }
 
 unsafe fn get_process_path_by_id(process_id: u32) -> Result<String> {
-    let try_process_handle = OpenProcess(
-        PROCESS_QUERY_LIMITED_INFORMATION,
-        FALSE,
-        process_id,
-    );
+    let try_process_handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, process_id);
 
     if let Err(e) = try_process_handle {
         return Err(anyhow::anyhow!("Failed to open process: {}", e));
@@ -430,7 +448,7 @@ unsafe fn get_process_path_by_id(process_id: u32) -> Result<String> {
 
     let mut buffer = [0u16; 1024];
     let mut size = buffer.len() as u32;
-    
+
     let result = QueryFullProcessImageNameW(
         process_handle,
         PROCESS_NAME_WIN32,

@@ -2,19 +2,19 @@ use anyhow::Result;
 use std::fmt::Debug;
 use tokio::sync::mpsc::Sender;
 use windows::{
-    core::{implement, PCWSTR, GUID},
+    core::{implement, GUID, PCWSTR},
     Win32::{
         Foundation::{ERROR_ACCESS_DENIED, ERROR_INVALID_DATA, WIN32_ERROR},
         Media::Audio::{
-            EDataFlow, ERole,
+            AudioSessionDisconnectReason, EDataFlow, ERole,
             Endpoints::{
                 IAudioEndpointVolume, IAudioEndpointVolumeCallback,
                 IAudioEndpointVolumeCallback_Impl,
             },
             IAudioSessionControl, IAudioSessionEvents, IAudioSessionEvents_Impl,
-            IAudioSessionNotification, IAudioSessionNotification_Impl,
-            IMMDeviceEnumerator, IMMNotificationClient, IMMNotificationClient_Impl,
-            AUDIO_VOLUME_NOTIFICATION_DATA, DEVICE_STATE, AudioSessionDisconnectReason,
+            IAudioSessionNotification, IAudioSessionNotification_Impl, IMMDeviceEnumerator,
+            IMMNotificationClient, IMMNotificationClient_Impl, AUDIO_VOLUME_NOTIFICATION_DATA,
+            DEVICE_STATE,
         },
         UI::Shell::PropertiesSystem::PROPERTYKEY,
     },
@@ -185,6 +185,7 @@ impl IAudioEndpointVolumeCallback_Impl for AudioEndpointVolumeCallback {
 struct AudioSessionEventsCallback {
     tx: Sender<Notification>,
     process_id: u32,
+    device_id: String,
 }
 
 impl IAudioSessionEvents_Impl for AudioSessionEventsCallback {
@@ -241,8 +242,18 @@ impl IAudioSessionEvents_Impl for AudioSessionEventsCallback {
 
     fn OnStateChanged(
         &self,
-        _newstate: windows::Win32::Media::Audio::AudioSessionState,
+        newstate: windows::Win32::Media::Audio::AudioSessionState,
     ) -> windows::core::Result<()> {
+        use windows::Win32::Media::Audio::{AudioSessionStateExpired, AudioSessionStateInactive};
+
+        // セッションが非アクティブまたは期限切れになった場合も通知
+        if newstate == AudioSessionStateInactive || newstate == AudioSessionStateExpired {
+            self.tx
+                .blocking_send(Notification::SessionTerminated {
+                    device_id: self.device_id.clone(),
+                })
+                .map_err(|e| to_win_error(e, ERROR_ACCESS_DENIED))?;
+        }
         Ok(())
     }
 
@@ -250,6 +261,11 @@ impl IAudioSessionEvents_Impl for AudioSessionEventsCallback {
         &self,
         _disconnectreason: AudioSessionDisconnectReason,
     ) -> windows::core::Result<()> {
+        self.tx
+            .blocking_send(Notification::SessionTerminated {
+                device_id: self.device_id.clone(),
+            })
+            .map_err(|e| to_win_error(e, ERROR_ACCESS_DENIED))?;
         Ok(())
     }
 }
@@ -304,10 +320,12 @@ impl NotificationCallbacks {
     pub(crate) fn create_session_events_callback(
         tx: &Sender<Notification>,
         process_id: u32,
+        device_id: String,
     ) -> IAudioSessionEvents {
         AudioSessionEventsCallback {
             tx: tx.clone(),
             process_id,
+            device_id,
         }
         .into()
     }
