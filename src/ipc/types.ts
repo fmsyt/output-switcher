@@ -52,8 +52,11 @@ export interface SessionTerminated {
 
 export type Notify = DefaultDeviceChanged | DeviceAdded | DeviceRemoved | DeviceStateChanged | PropertyValueChanged | VolumeChanged | SessionVolumeChanged | SessionCreated | SessionTerminated;
 
+/**
+ * 初期化するときにWindowsのオーディオデバイスの状態を取得するためのペイロード
+ */
 export interface WindowsAudioState {
-  default: string;
+  default: AudioDeviceInfo["id"];
   audioDeviceList: AudioDeviceInfo[];
 }
 

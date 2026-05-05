@@ -3,16 +3,9 @@ export interface AudioDeviceInfo {
   name: string;
   volume: number;
   muted: boolean;
-  // sessions: AudioSessionInfo[];
 }
 
 export interface AudioSessionInfo {
-  // id: string;
-  // name: string;
-  // volume: number;
-  // muted: boolean;
-  // icon: string | null;
-
   session_id: string;
   process_id: number;
   process_name: string;
