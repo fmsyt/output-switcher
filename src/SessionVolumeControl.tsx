@@ -1,9 +1,12 @@
-import { Box, Stack, Typography } from "@mui/material";
-import { useCallback, useEffect, useState } from "react";
-import Checkbox from "./component/Checkbox";
+import VolumeOffIcon from '@mui/icons-material/VolumeOff';
+import { Box, IconButton, Stack, Typography } from "@mui/material";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import Slider from "./component/Slider";
 import type { AudioSessionInfo } from "./contexts/audio/types";
 import useAudioSessions from "./contexts/useAudioSessions";
+import DraggingContext from "./effect/dragging/DraggingContext";
+import { MaskedIconProps } from './component/types';
+import MaskedIcon from './component/MaskedIcon';
 
 interface SessionVolumeControlProps {
   deviceId: string;
@@ -98,29 +101,37 @@ function SessionControl(props: SessionControlProps) {
     [invokeChangeVolume, session.session_id]
   );
 
-  const handleMuteChange = useCallback(
-    () => async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const newMuted = event.target.checked;
-      invokeChangeMute(session.session_id, newMuted);
-      setMuted(newMuted);
-    },
-    [invokeChangeMute, session.session_id]
-  );
+  const handleMuteChange = useCallback(() => {
+    const newMuted = !muted;
+    console.log("Changing mute state for session", session.session_id, "to", newMuted);
+    invokeChangeMute(session.session_id, newMuted);
+    setMuted(newMuted);
+  }, [invokeChangeMute, session.session_id, muted])
 
   return (
     <Stack spacing={1.5}>
       <Stack direction="row" spacing={1} alignItems="center">
-        {session.icon_data ? (
-          <img
-            src={session.icon_data}
-            alt=""
-            style={{ width: 24, height: 24 }}
-          />
-        ) : (
-          <span style={{ fontSize: 24 }}>
-            {session.process_id === 0 ? "🔔" : "📦"}
-          </span>
-        )}
+
+        <MaskedIcon
+          masked={muted}
+          onClick={handleMuteChange}
+          maskComponent={
+            <VolumeOffIcon />
+          }
+        >
+          {session.icon_data ? (
+            <img
+              src={session.icon_data}
+              alt=""
+              style={{ width: 24, height: 24 }}
+            />
+          ) : (
+            <span style={{ fontSize: 24 }}>
+              {session.process_id === 0 ? "🔔" : "📦"}
+            </span>
+          )}
+        </MaskedIcon>
+
         <Typography variant="body1" fontWeight="bold">
           {displaySoftwareName(session)}
         </Typography>
@@ -133,20 +144,16 @@ function SessionControl(props: SessionControlProps) {
           min={0}
           max={1}
           step={0.01}
-          disabled={session.muted}
+          disabled={muted}
           size="small"
           sx={{ flexGrow: 1 }}
         />
         <Typography variant="body2" sx={{ minWidth: 40 }}>
           {Math.round(volume * 100)}
         </Typography>
-        <Checkbox
-          checked={muted}
-          onChange={handleMuteChange()}
-          size="small"
-        />
       </Stack>
     </Stack>
   )
 
 }
+
