@@ -1,15 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { invokeQuery } from "../ipc";
-import type { AudioStateChangePayload } from "../ipc/types";
-import type { AudioSessionInfo } from "./audio/types";
-
-type Props = {
-  deviceId: string;
-  onSessionsChange?: (sessions: AudioSessionInfo[]) => void;
-}
-
+import { useState, useRef, useEffect, useCallback } from "react";
+import { invokeQuery } from "../../ipc";
+import type { AudioStateChangePayload } from "../../ipc/types";
+import type { AudioSessionInfo } from "../audio/types";
+import SessionControlContext from "./SessionControlContext";
+import type { SessionControlProviderProps } from "./types";
 
 async function loadSessions(deviceId: string): Promise<AudioSessionInfo[]> {
   const sessionList = await invoke<AudioSessionInfo[]>("get_audio_sessions", { deviceId });
@@ -29,10 +25,8 @@ async function loadSessions(deviceId: string): Promise<AudioSessionInfo[]> {
   return sessionList;
 }
 
-/**
- * @deprecated Use `SessionControlProvider` instead of this hook for better performance and reliability.
- */
-export default function useAudioSessions(props: Props) {
+export default function SessionControlProvider(props: SessionControlProviderProps) {
+
   const { deviceId } = props;
 
   const [sessions, setSessions] = useState<AudioSessionInfo[]>([]);
@@ -126,11 +120,17 @@ export default function useAudioSessions(props: Props) {
   }, [sessions, deviceId])
 
 
-  return {
-    sessions,
-    invokeChangeMute,
-    invokeToggleMute,
-    invokeChangeVolume,
-  }
-}
+  return (
+    <SessionControlContext.Provider
+      value={{
+        sessions,
+        invokeChangeMute,
+        invokeToggleMute,
+        invokeChangeVolume,
+      }}
+    >
+      {props.children}
+    </SessionControlContext.Provider>
+  )
 
+}

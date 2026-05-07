@@ -4,18 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import MaskedIcon from './component/MaskedIcon';
 import Slider from "./component/Slider";
 import type { AudioSessionInfo } from "./contexts/audio/types";
-import useAudioSessions from "./contexts/useAudioSessions";
+import useSessionControlContext from './contexts/session/useSessionControlContext';
 
-interface SessionVolumeControlProps {
-  deviceId: string;
-}
+export default function SessionVolumeControl() {
 
-export default function SessionVolumeControl(props: SessionVolumeControlProps) {
-  const { deviceId } = props;
-
-  const { sessions, invokeChangeMute, invokeChangeVolume } = useAudioSessions({
-    deviceId,
-  });
+  const { sessions, invokeChangeMute, invokeChangeVolume } = useSessionControlContext();
 
   return (
     <Box sx={{ mt: 2, p: 2, border: "1px solid #ccc", borderRadius: 1 }}>
