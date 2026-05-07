@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invokeQuery } from "../ipc";
-import { AudioStateChangePayload } from "../ipc/types";
+import type { AudioStateChangePayload } from "../ipc/types";
 import type { AudioSessionInfo } from "./audio/types";
 
 type Props = {

@@ -1,12 +1,10 @@
 import VolumeOffIcon from '@mui/icons-material/VolumeOff';
-import { Box, IconButton, Stack, Typography } from "@mui/material";
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { Box, Stack, Typography } from "@mui/material";
+import { useCallback, useEffect, useState } from "react";
+import MaskedIcon from './component/MaskedIcon';
 import Slider from "./component/Slider";
 import type { AudioSessionInfo } from "./contexts/audio/types";
 import useAudioSessions from "./contexts/useAudioSessions";
-import DraggingContext from "./effect/dragging/DraggingContext";
-import { MaskedIconProps } from './component/types';
-import MaskedIcon from './component/MaskedIcon';
 
 interface SessionVolumeControlProps {
   deviceId: string;
@@ -156,4 +154,3 @@ function SessionControl(props: SessionControlProps) {
   )
 
 }
-

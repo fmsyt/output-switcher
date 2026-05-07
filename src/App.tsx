@@ -1,7 +1,7 @@
 import { Card, CardContent, CircularProgress, CssBaseline, Stack } from "@mui/material";
 import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
-import { listen, UnlistenFn } from "@tauri-apps/api/event";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useContext, useEffect, useRef } from "react";
 import Meter from "./Meter";
