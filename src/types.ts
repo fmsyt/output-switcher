@@ -1,13 +1,11 @@
 import type { AudioDeviceInfo } from "./contexts/audio/types";
 
 
-export interface MeterProps {
-  device: AudioDeviceInfo;
-  defaultVolume?: number;
-  deviceList?: AudioDeviceInfo[];
+export type MeterProps = {
+  device: AudioDeviceInfo | null;
 }
 
-export interface AppContextValue {
+export type AppContextValue = {
   addIgnoreDragTarget: (target: HTMLElement) => void;
   removeIgnoreDragTarget: (target: HTMLElement) => void;
 }

@@ -1,17 +1,16 @@
-import { Card, CardContent, CircularProgress, CssBaseline, Stack } from "@mui/material";
+import { Card, CardContent, CssBaseline } from "@mui/material";
 import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { type UnlistenFn, listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useCallback, useContext, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import Meter from "./Meter";
 import SessionVolumeControl from "./SessionVolumeControl";
 import ThemeProvider from "./ThemeProvider";
-import DraggingContext from "./effect/dragging/DraggingContext";
+import SessionControlProvider from "./contexts/session/SessionControlProvider";
 import DraggingProvider from "./effect/dragging/DraggingProvider";
 import useRegisterContextMenu from "./useRegisterContextMenu";
 import useWindowsAudioState from "./useWindowsAudioState";
-import SessionControlProvider from "./contexts/session/SessionControlProvider";
 
 function App() {
 
@@ -35,7 +34,7 @@ function App() {
     const minSize = new LogicalSize(64, physicalSize.height);
     const maxSize = new LogicalSize(physicalSize.width, physicalSize.height);
 
-    // mainWindow.setMinSize(minSize);
+    mainWindow.setMinSize(minSize);
     mainWindow.setMaxSize(maxSize);
   }, []);
 
@@ -83,28 +82,11 @@ function App() {
 
 function Container() {
 
-  const { addIgnoreDragTarget, removeIgnoreDragTarget } = useContext(DraggingContext)
-
-  const sessionControlRef = useRef<HTMLDivElement>(null);
-
   const { audioDeviceList, defaultDevice } = useWindowsAudioState();
 
   useEffect(() => {
     console.log("Default device changed:", defaultDevice);
   }, [defaultDevice])
-
-
-  useEffect(() => {
-    if (sessionControlRef.current) {
-      addIgnoreDragTarget(sessionControlRef.current);
-    }
-
-    return () => {
-      if (sessionControlRef.current) {
-        removeIgnoreDragTarget(sessionControlRef.current);
-      }
-    };
-  }, [addIgnoreDragTarget, removeIgnoreDragTarget]);
 
 
   const handleContextMenu = useRegisterContextMenu({ defaultDevice: defaultDevice, deviceList: audioDeviceList });
@@ -120,26 +102,13 @@ function Container() {
   return (
     <Card>
       <CardContent>
-        {defaultDevice && (
-          <SessionControlProvider
-            deviceId={defaultDevice.id}
-          >
-            <Meter
-              device={defaultDevice}
-              defaultVolume={defaultDevice.volume}
-              deviceList={audioDeviceList}
-            />
-            <div ref={sessionControlRef}>
-              <SessionVolumeControl deviceId={defaultDevice.id} />
-            </div>
-          </SessionControlProvider>
-        )}
+        <SessionControlProvider
+          deviceId={defaultDevice?.id || null}
+        >
+          <Meter device={defaultDevice} />
+          <SessionVolumeControl />
+        </SessionControlProvider>
 
-        {!defaultDevice && (
-          <Stack spacing={2} alignItems="center">
-            <CircularProgress />
-          </Stack>
-        )}
       </CardContent>
     </Card>
   )

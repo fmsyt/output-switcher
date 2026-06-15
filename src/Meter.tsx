@@ -5,7 +5,6 @@ import { Grid, IconButton, Stack, Typography } from "@mui/material";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Slider from './component/Slider';
-import useDragging from './effect/dragging/useDragging';
 import { invokeQuery } from "./ipc";
 import type { MeterProps } from "./types";
 
@@ -28,31 +27,21 @@ registerListeners();
 
 export default function Meter(props: MeterProps) {
 
-  const ignoreDragContext = useDragging();
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const sliderRef = useRef<HTMLSpanElement | null>(null);
+  const { device } = props;
 
+  const [volume, setVolume] = useState(device?.volume || 0);
+  const [muted, setMuted] = useState(device?.muted);
 
+  useEffect(() => setVolume(device?.volume || 0), [device?.volume]);
   useEffect(() => {
-    const { addIgnoreDragTarget, removeIgnoreDragTarget } = ignoreDragContext;
-
-    buttonRef.current && addIgnoreDragTarget(buttonRef.current);
-    sliderRef.current && addIgnoreDragTarget(sliderRef.current);
-
-    return () => {
-      buttonRef.current && removeIgnoreDragTarget(buttonRef.current);
-      sliderRef.current && removeIgnoreDragTarget(sliderRef.current);
+    if (device?.muted !== undefined) {
+      setMuted(device.muted);
+      return;
     }
 
-  }, [ignoreDragContext])
-
-  const { device, defaultVolume } = props;
-
-  const [volume, setVolume] = useState(device.volume || 0);
-  const [muted, setMuted] = useState(device.muted);
-
-  useEffect(() => setVolume(defaultVolume || 0), [defaultVolume]);
-  useEffect(() => setMuted(device.muted), [device.muted]);
+    // NOTE: 再生デバイスがなければミュート扱いにする
+    setMuted(true);
+  }, [device?.muted]);
 
   const handlerIdRef = useRef<number | null>(null);
   const invokeChangeVolume = useCallback(async (volume: number) => {
@@ -72,7 +61,7 @@ export default function Meter(props: MeterProps) {
       });
     }, 10);
 
-  }, [device.id]);
+  }, [device?.id]);
 
   const handleChangeVolume = useCallback((event: Event, volume: number | number[]) => {
 
@@ -139,8 +128,6 @@ export default function Meter(props: MeterProps) {
   }, [device, muted]);
 
 
-
-
   const displayVolume = useCallback((v: number) => Math.round(v * 100), []);
 
   return (
@@ -156,7 +143,6 @@ export default function Meter(props: MeterProps) {
         onMouseDown={(e) => e.stopPropagation()}
         onClick={handleToggleMute}
         size="small"
-        ref={buttonRef}
       >
         {muted ? <VolumeOffIcon /> : volume === 0 ? <VolumeMuteIcon /> : <VolumeUpIcon />}
       </IconButton>
@@ -167,7 +153,7 @@ export default function Meter(props: MeterProps) {
         width="100%"
         noWrap
       >
-        {device.name}
+        {device?.name || "No Device"}
       </Typography>
 
       <div />
@@ -186,7 +172,6 @@ export default function Meter(props: MeterProps) {
           step={volumeStep}
           disabled={muted}
           size="small"
-          ref={sliderRef}
         />
         <Typography variant="body1" textAlign="center" width="2em">
           {displayVolume(volume)}

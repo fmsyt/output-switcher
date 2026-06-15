@@ -10,6 +10,6 @@ export type SessionControlContextValue = {
 
 export type SessionControlProviderProps = {
   children?: ReactNode;
-  deviceId: string;
+  deviceId: string | null;
   onSessionsChange?: (sessions: AudioSessionInfo[]) => void;
 }

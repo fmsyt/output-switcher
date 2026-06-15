@@ -38,6 +38,10 @@ export default function SessionControlProvider(props: SessionControlProviderProp
 
   useEffect(() => {
 
+    if (!deviceId) {
+      return;
+    }
+
     console.log("Loading audio sessions for device:", deviceId);
 
     const loader = async () => {
@@ -72,6 +76,12 @@ export default function SessionControlProvider(props: SessionControlProviderProp
   }, [deviceId])
 
   const invokeChangeMute = useCallback(async (sessionId: AudioSessionInfo["session_id"], muted: boolean) => {
+
+    if (!deviceId) {
+      console.warn("Device ID is null. Cannot change mute state.");
+      return;
+    }
+
     await invokeQuery({
       kind: "SessionMuteStateChange",
       id: deviceId,
@@ -97,6 +107,11 @@ export default function SessionControlProvider(props: SessionControlProviderProp
 
   const handlerRef = useRef<ReturnType<Window["setTimeout"]> | null>(null)
   const invokeChangeVolume = useCallback(async (sessionId: AudioSessionInfo["session_id"], volume: number) => {
+
+    if (!deviceId) {
+      console.warn("Device ID is null. Cannot change volume.");
+      return;
+    }
 
     const session = sessions.find(s => s.session_id === sessionId);
     if (!session) {
