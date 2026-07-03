@@ -32,6 +32,29 @@ impl Singleton {
 
         // spawn a background poller to detect device/default changes
         let tx_clone = s.tx.clone();
+
+        // initial emit: send current devices and default so frontend doesn't wait
+        let tx_init = tx_clone.clone();
+        tokio::spawn(async move {
+            let ids_res = tokio::task::spawn_blocking(|| list_device_ids()).await;
+            if let Ok(ids) = ids_res {
+                for id in ids.iter() {
+                    if let Err(e) = tx_init.send(notifier::Notification::DeviceAdded { id: id.clone() }).await {
+                        log::error!("failed to send initial DeviceAdded: {:?}", e);
+                    }
+                }
+            }
+
+            let default_res = tokio::task::spawn_blocking(|| get_default_from_pactl()).await;
+            if let Ok(default_opt) = default_res {
+                if let Some(d) = default_opt {
+                    if let Err(e) = tx_init.send(notifier::Notification::DefaultDeviceChanged { id: d }).await {
+                        log::error!("failed to send initial DefaultDeviceChanged: {:?}", e);
+                    }
+                }
+            }
+        });
+
         tokio::spawn(async move {
             use std::time::Duration;
             use tokio::time::sleep;
@@ -48,14 +71,16 @@ impl Singleton {
                         // detect added/removed
                         for id in ids.iter() {
                             if !last_ids.contains(id) {
-                                let _ = tx_clone
-                                    .blocking_send(notifier::Notification::DeviceAdded { id: id.clone() });
+                                if let Err(e) = tx_clone.send(notifier::Notification::DeviceAdded { id: id.clone() }).await {
+                                    log::error!("failed to send DeviceAdded: {:?}", e);
+                                }
                             }
                         }
                         for id in last_ids.iter() {
                             if !ids.contains(id) {
-                                let _ = tx_clone
-                                    .blocking_send(notifier::Notification::DeviceRemoved { id: id.clone() });
+                                if let Err(e) = tx_clone.send(notifier::Notification::DeviceRemoved { id: id.clone() }).await {
+                                    log::error!("failed to send DeviceRemoved: {:?}", e);
+                                }
                             }
                         }
 
@@ -67,7 +92,9 @@ impl Singleton {
                     if let Ok(default_opt) = default_res {
                         if default_opt != last_default {
                             if let Some(d) = default_opt.clone() {
-                                let _ = tx_clone.blocking_send(notifier::Notification::DefaultDeviceChanged { id: d });
+                                if let Err(e) = tx_clone.send(notifier::Notification::DefaultDeviceChanged { id: d }).await {
+                                    log::error!("failed to send DefaultDeviceChanged: {:?}", e);
+                                }
                             }
                             last_default = default_opt;
                         }
