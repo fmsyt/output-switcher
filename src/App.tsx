@@ -34,7 +34,7 @@ function App() {
     const minSize = new LogicalSize(64, physicalSize.height);
     const maxSize = new LogicalSize(physicalSize.width, physicalSize.height);
 
-    mainWindow.setMinSize(minSize);
+    // keep max size limit, don't enforce min size to allow compact UI on some platforms
     mainWindow.setMaxSize(maxSize);
   }, []);
 
