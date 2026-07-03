@@ -28,7 +28,57 @@ pub struct Singleton {
 
 impl Singleton {
     pub fn new(tx: &Sender<notifier::Notification>) -> Result<Self> {
-        Ok(Singleton { tx: tx.clone() })
+        let s = Singleton { tx: tx.clone() };
+
+        // spawn a background poller to detect device/default changes
+        let tx_clone = s.tx.clone();
+        tokio::spawn(async move {
+            use std::time::Duration;
+            use tokio::time::sleep;
+
+            let mut last_ids: Vec<String> = Vec::new();
+            let mut last_default: Option<String> = None;
+
+            loop {
+                // enumerate device ids in blocking task
+                let ids_res = tokio::task::spawn_blocking(|| list_device_ids()).await;
+                if let Ok(ids) = ids_res {
+                    // compare
+                    if ids != last_ids {
+                        // detect added/removed
+                        for id in ids.iter() {
+                            if !last_ids.contains(id) {
+                                let _ = tx_clone
+                                    .blocking_send(notifier::Notification::DeviceAdded { id: id.clone() });
+                            }
+                        }
+                        for id in last_ids.iter() {
+                            if !ids.contains(id) {
+                                let _ = tx_clone
+                                    .blocking_send(notifier::Notification::DeviceRemoved { id: id.clone() });
+                            }
+                        }
+
+                        last_ids = ids;
+                    }
+
+                    // check default
+                    let default_res = tokio::task::spawn_blocking(|| get_default_from_pactl()).await;
+                    if let Ok(default_opt) = default_res {
+                        if default_opt != last_default {
+                            if let Some(d) = default_opt.clone() {
+                                let _ = tx_clone.blocking_send(notifier::Notification::DefaultDeviceChanged { id: d });
+                            }
+                            last_default = default_opt;
+                        }
+                    }
+                }
+
+                sleep(Duration::from_millis(1000)).await;
+            }
+        });
+
+        Ok(s)
     }
 
     pub fn get_active_audio_devices(self: &Arc<Self>) -> Result<Vec<IMMAudioDevice>> {
@@ -123,6 +173,77 @@ impl Singleton {
 
         Err(anyhow::anyhow!("No default device found"))
     }
+}
+
+// Helper: list device ids using pw-dump
+fn list_device_ids() -> Vec<String> {
+    let mut ids = Vec::new();
+    if let Ok(out) = Command::new("pw-dump").output() {
+        if out.status.success() {
+            if let Ok(text) = String::from_utf8(out.stdout) {
+                if let Ok(json) = serde_json::from_str::<Value>(&text) {
+                    if let Some(array) = json.as_array() {
+                        for entry in array.iter() {
+                            if let Some(t) = entry.get("type") {
+                                if t == "Node" {
+                                    let props = entry.get("props").and_then(|p| p.as_object());
+                                    let media_class = props
+                                        .and_then(|p| p.get("media.class"))
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("");
+
+                                    if media_class.contains("Audio/Sink") {
+                                        let id = entry
+                                            .get("id")
+                                            .and_then(|v| v.as_i64())
+                                            .map(|i| format!("pw-{}", i))
+                                            .unwrap_or_else(|| {
+                                                let millis = ::std::time::SystemTime::now()
+                                                    .duration_since(::std::time::UNIX_EPOCH)
+                                                    .map(|d| d.as_millis())
+                                                    .unwrap_or(0);
+                                                format!("pw-unknown-{}", millis)
+                                            });
+
+                                        ids.push(id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ids
+}
+
+// Helper: get default sink name via pactl
+fn get_default_from_pactl() -> Option<String> {
+    if let Ok(out) = Command::new("pactl").arg("info").output() {
+        if out.status.success() {
+            if let Ok(text) = String::from_utf8(out.stdout) {
+                for line in text.lines() {
+                    if line.starts_with("Default Sink:") || line.starts_with("Default Server Name:") {
+                        if let Some(pos) = line.find(":") {
+                            let v = line[pos + 1..].trim();
+                            if !v.is_empty() {
+                                return Some(v.to_string());
+                            }
+                        }
+                    }
+                    if line.starts_with("Default Sink: ") {
+                        let v = line[14..].trim();
+                        if !v.is_empty() {
+                            return Some(v.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
 }
 
 unsafe impl Send for Singleton {}
