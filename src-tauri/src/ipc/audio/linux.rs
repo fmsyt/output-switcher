@@ -309,24 +309,157 @@ impl IMMAudioDevice {
     }
 
     pub fn get_session_list(&self) -> Result<Vec<(String, u32, String, f32, bool, String, String, String)>> {
-        // PipeWire session enumeration is not implemented yet. Return empty list.
-        Ok(Vec::new())
+        // Use pactl (PulseAudio compatibility) to list sink inputs (streams)
+        let out = Command::new("pactl").arg("list").arg("sink-inputs").output();
+        let mut sessions = Vec::new();
+
+        if let Ok(out) = out {
+            if out.status.success() {
+                if let Ok(text) = String::from_utf8(out.stdout) {
+                    // split by "Sink Input #"
+                    let parts: Vec<&str> = text.split("Sink Input #").collect();
+                    for part in parts.into_iter().skip(1) {
+                        // first token starts with id number
+                        let mut lines = part.lines();
+                        if let Some(first_line) = lines.next() {
+                            let id_str = first_line.trim().split_whitespace().next().unwrap_or("0");
+                            let session_id = id_str.to_string();
+
+                            let mut pid: u32 = 0;
+                            let mut process_name = String::new();
+                            let mut volume = 0.0f32;
+                            let mut muted = false;
+                            let mut display_name = String::new();
+
+                            for line in lines {
+                                let l = line.trim();
+                                if l.starts_with("Mute:") {
+                                    muted = l[5..].trim().starts_with("yes");
+                                } else if l.starts_with("Volume:") {
+                                    // find percentage
+                                    if let Some(pos) = l.find('%') {
+                                        // scan backwards to find number start
+                                        let slice = &l[..pos];
+                                        if let Some(num_str) = slice.rsplit_whitespace().next() {
+                                            if let Ok(pct) = num_str.parse::<f32>() {
+                                                volume = pct / 100.0;
+                                            }
+                                        }
+                                    }
+                                } else if l.starts_with("application.process.id =") {
+                                    // format: application.process.id = "1234"
+                                    if let Some(eq_pos) = l.find('=') {
+                                        let val = l[eq_pos + 1..].trim().trim_matches('"').trim().to_string();
+                                        if let Ok(v) = val.parse::<u32>() {
+                                            pid = v;
+                                        }
+                                    }
+                                } else if l.starts_with("application.process.binary =") {
+                                    if let Some(eq_pos) = l.find('=') {
+                                        process_name = l[eq_pos + 1..].trim().trim_matches('"').to_string();
+                                    }
+                                } else if l.starts_with("application.name =") {
+                                    if display_name.is_empty() {
+                                        if let Some(eq_pos) = l.find('=') {
+                                            display_name = l[eq_pos + 1..].trim().trim_matches('"').to_string();
+                                        }
+                                    }
+                                } else if l.starts_with("media.name =") {
+                                    if display_name.is_empty() {
+                                        if let Some(eq_pos) = l.find('=') {
+                                            display_name = l[eq_pos + 1..].trim().trim_matches('"').to_string();
+                                        }
+                                    }
+                                }
+                            }
+
+                            sessions.push((
+                                session_id,
+                                pid,
+                                process_name,
+                                volume,
+                                muted,
+                                display_name,
+                                String::new(),
+                                String::new(),
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(sessions)
     }
 
-    pub fn set_session_volume(&self, _session_id: &str, _volume: f32) -> Result<()> {
-        // Not supported in this shim
+    pub fn set_session_volume(&self, session_id: &str, volume: f32) -> Result<()> {
+        // pactl expects percentage
+        let pct = format!("{}%", (volume * 100.0).round() as i32);
+        let _ = Command::new("pactl")
+            .arg("set-sink-input-volume")
+            .arg(session_id)
+            .arg(&pct)
+            .output();
         Ok(())
     }
 
-    pub fn set_session_mute_state(&self, _session_id: &str, _mute_state: bool) -> Result<()> {
+    pub fn set_session_mute_state(&self, session_id: &str, mute_state: bool) -> Result<()> {
+        let m = if mute_state { "1" } else { "0" };
+        let _ = Command::new("pactl")
+            .arg("set-sink-input-mute")
+            .arg(session_id)
+            .arg(m)
+            .output();
         Ok(())
     }
 
-    pub fn get_session_volume(&self, _session_id: &str) -> Result<f32> {
+    pub fn get_session_volume(&self, session_id: &str) -> Result<f32> {
+        // ask pactl list sink-inputs and find matching id
+        if let Ok(out) = Command::new("pactl").arg("list").arg("sink-inputs").output() {
+            if out.status.success() {
+                if let Ok(text) = String::from_utf8(out.stdout) {
+                    let parts: Vec<&str> = text.split("Sink Input #").collect();
+                    for part in parts.into_iter().skip(1) {
+                        if part.trim_start().starts_with(session_id) {
+                            for line in part.lines() {
+                                let l = line.trim();
+                                if l.starts_with("Volume:") {
+                                    if let Some(pos) = l.find('%') {
+                                        let slice = &l[..pos];
+                                        if let Some(num_str) = slice.rsplit_whitespace().next() {
+                                            if let Ok(pct) = num_str.parse::<f32>() {
+                                                return Ok(pct / 100.0);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Ok(0.0)
     }
 
-    pub fn get_session_mute_state(&self, _session_id: &str) -> Result<bool> {
+    pub fn get_session_mute_state(&self, session_id: &str) -> Result<bool> {
+        if let Ok(out) = Command::new("pactl").arg("list").arg("sink-inputs").output() {
+            if out.status.success() {
+                if let Ok(text) = String::from_utf8(out.stdout) {
+                    let parts: Vec<&str> = text.split("Sink Input #").collect();
+                    for part in parts.into_iter().skip(1) {
+                        if part.trim_start().starts_with(session_id) {
+                            for line in part.lines() {
+                                let l = line.trim();
+                                if l.starts_with("Mute:") {
+                                    return Ok(l[5..].trim().starts_with("yes"));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Ok(false)
     }
 
