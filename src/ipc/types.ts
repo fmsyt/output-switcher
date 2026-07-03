@@ -55,14 +55,23 @@ export type Notify = DefaultDeviceChanged | DeviceAdded | DeviceRemoved | Device
 /**
  * 初期化するときにWindowsのオーディオデバイスの状態を取得するためのペイロード
  */
-export interface WindowsAudioState {
+/**
+ * Generic audio state structure used across platforms (Windows, PipeWire, PulseAudio)
+ */
+export interface AudioState {
   default: AudioDeviceInfo["id"];
   audioDeviceList: AudioDeviceInfo[];
 }
 
+// Backwards compatibility alias for existing Windows payloads
+export type WindowsAudioState = AudioState;
 
 export interface AudioStateChangePayload {
-  windowsAudioState: WindowsAudioState;
+  // new, platform-agnostic field (preferred)
+  audioState?: AudioState;
+  // legacy Windows-specific field (kept for compatibility)
+  windowsAudioState?: WindowsAudioState;
+  // optional notification about a specific change
   notification?: Notify;
 }
 

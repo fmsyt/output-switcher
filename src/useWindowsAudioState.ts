@@ -2,12 +2,12 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AudioDeviceInfo } from "./contexts/audio/types";
 import { invokeQuery } from "./ipc";
-import type { AudioStateChangePayload, WindowsAudioState } from "./ipc/types";
+import type { AudioStateChangePayload, AudioState } from "./ipc/types";
 
 const useWindowsAudioState = () => {
 
   const [initializing, setInitializing] = useState(true);
-  const [audioState, setAudioState] = useState<WindowsAudioState>();
+  const [audioState, setAudioState] = useState<AudioState | undefined>();
 
   const initializeAsyncFn = useRef<(() => Promise<void>) | null>(null);
 
@@ -18,7 +18,12 @@ const useWindowsAudioState = () => {
 
     initializeAsyncFn.current = async () => {
       await listen<AudioStateChangePayload>("audio_state_change", (event) => {
-        setAudioState(event.payload.windowsAudioState);
+        const payload = event.payload;
+        // Prefer the new platform-agnostic field, fall back to legacy windows field.
+        const newState = (payload as any).audioState ?? (payload as any).windowsAudioState ?? (payload as any).pipewireAudioState;
+        if (newState) {
+          setAudioState(newState);
+        }
       });
 
       const results = await Promise.allSettled([
