@@ -63,21 +63,41 @@ impl AudioDeviceInfo {
 
 #[derive(serde::Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct WindowsAudioState {
-    audio_device_list: Vec<AudioDeviceInfo>,
-    default: String,
+pub struct AudioDeviceInfoOut {
+    pub id: String,
+    pub name: String,
+    pub volume: f32,
+    pub muted: bool,
 }
 
-impl WindowsAudioState {
+impl AudioDeviceInfoOut {
+    fn from_audio(audio: &IMMAudioDevice) -> Result<Self> {
+        Ok(Self {
+            id: audio.id.clone(),
+            name: audio.name.clone(),
+            volume: audio.get_volume()?,
+            muted: audio.get_mute_state()?,
+        })
+    }
+}
+
+#[derive(serde::Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioState {
+    pub default: String,
+    pub audio_device_list: Vec<AudioDeviceInfoOut>,
+}
+
+impl AudioState {
     fn new(audio_dict: &AudioDeviceMap, default: String) -> Result<Self> {
         let audio_device_list = audio_dict
             .values()
-            .map(|a| AudioDeviceInfo::from_audio(a))
+            .map(|a| AudioDeviceInfoOut::from_audio(a))
             .collect::<Result<Vec<_>>>()?;
 
         Ok(Self {
-            audio_device_list,
             default,
+            audio_device_list,
         })
     }
 }
@@ -85,8 +105,11 @@ impl WindowsAudioState {
 #[derive(serde::Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioStateChangePayload {
-    windows_audio_state: WindowsAudioState,
-    notification: Option<Notification>,
+    // preferred platform-agnostic field
+    pub audio_state: AudioState,
+    // legacy windows field for backward compatibility
+    pub windows_audio_state: Option<AudioState>,
+    pub notification: Option<Notification>,
 }
 
 pub async fn ipc_sender(
@@ -100,11 +123,12 @@ pub async fn ipc_sender(
         let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
             inner: UnexpectedErr::LockError,
         })?;
-        WindowsAudioState::new(&dict, default)?
+        AudioState::new(&dict, default)?
     };
 
     let payload = AudioStateChangePayload {
-        windows_audio_state: audio_state,
+        audio_state: audio_state.clone(),
+        windows_audio_state: Some(audio_state),
         notification,
     };
 
