@@ -244,7 +244,6 @@ fn get_default_from_pactl() -> Option<String> {
     }
     None
 }
-}
 
 unsafe impl Send for Singleton {}
 unsafe impl Sync for Singleton {}
@@ -340,7 +339,7 @@ impl IMMAudioDevice {
                                     if let Some(pos) = l.find('%') {
                                         // scan backwards to find number start
                                         let slice = &l[..pos];
-                                        if let Some(num_str) = slice.rsplit_whitespace().next() {
+                                        if let Some(num_str) = slice.split_whitespace().last() {
                                             if let Ok(pct) = num_str.parse::<f32>() {
                                                 volume = pct / 100.0;
                                             }
@@ -426,7 +425,7 @@ impl IMMAudioDevice {
                                 if l.starts_with("Volume:") {
                                     if let Some(pos) = l.find('%') {
                                         let slice = &l[..pos];
-                                        if let Some(num_str) = slice.rsplit_whitespace().next() {
+                                        if let Some(num_str) = slice.split_whitespace().last() {
                                             if let Ok(pct) = num_str.parse::<f32>() {
                                                 return Ok(pct / 100.0);
                                             }

@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 use anyhow::Result;
 use std::ffi::OsStr;
 use std::os::windows::ffi::OsStrExt;

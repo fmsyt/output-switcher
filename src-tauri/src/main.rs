@@ -2,7 +2,20 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 pub mod config;
+
+#[cfg(windows)]
 pub mod icon_extractor;
+
+#[cfg(not(windows))]
+mod icon_extractor_stub {
+    use anyhow::Result;
+    pub fn extract_icon_as_base64(_exe_path: &str, _size: u32) -> Result<String> { Ok(String::new()) }
+    pub fn extract_system_icon(_size: u32) -> Result<String> { Ok(String::new()) }
+}
+
+#[cfg(not(windows))]
+use icon_extractor_stub as icon_extractor;
+
 pub mod ipc;
 
 use tauri::State;
