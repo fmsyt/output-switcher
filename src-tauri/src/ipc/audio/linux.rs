@@ -59,49 +59,80 @@ impl Singleton {
             use std::time::Duration;
             use tokio::time::sleep;
 
+            const POLL_INTERVAL_MS: u64 = 1000;
+            const DEBOUNCE_MS: u64 = 300;
+
             let mut last_ids: Vec<String> = Vec::new();
             let mut last_default: Option<String> = None;
 
             loop {
                 // enumerate device ids in blocking task
                 let ids_res = tokio::task::spawn_blocking(|| list_device_ids()).await;
-                if let Ok(ids) = ids_res {
-                    // compare
-                    if ids != last_ids {
-                        // detect added/removed
-                        for id in ids.iter() {
-                            if !last_ids.contains(id) {
-                                if let Err(e) = tx_clone.send(notifier::Notification::DeviceAdded { id: id.clone() }).await {
-                                    log::error!("failed to send DeviceAdded: {:?}", e);
-                                }
-                            }
-                        }
-                        for id in last_ids.iter() {
-                            if !ids.contains(id) {
-                                if let Err(e) = tx_clone.send(notifier::Notification::DeviceRemoved { id: id.clone() }).await {
-                                    log::error!("failed to send DeviceRemoved: {:?}", e);
-                                }
-                            }
-                        }
+                let default_res = tokio::task::spawn_blocking(|| get_default_from_pactl()).await;
 
-                        last_ids = ids;
+                let ids = match ids_res {
+                    Ok(v) => v,
+                    Err(_) => {
+                        sleep(Duration::from_millis(POLL_INTERVAL_MS)).await;
+                        continue;
+                    }
+                };
+
+                let default_opt = match default_res {
+                    Ok(v) => v,
+                    Err(_) => None,
+                };
+
+                // Detect if anything changed compared to last known state
+                let changed = ids != last_ids || default_opt != last_default;
+
+                if changed {
+                    // debounce/coalesce rapid changes
+                    sleep(Duration::from_millis(DEBOUNCE_MS)).await;
+
+                    // Re-query after debounce window
+                    let ids_after_res = tokio::task::spawn_blocking(|| list_device_ids()).await;
+                    let default_after_res = tokio::task::spawn_blocking(|| get_default_from_pactl()).await;
+
+                    let ids_after = match ids_after_res {
+                        Ok(v) => v,
+                        Err(_) => ids.clone(),
+                    };
+                    let default_after = match default_after_res {
+                        Ok(v) => v,
+                        Err(_) => default_opt.clone(),
+                    };
+
+                    // compute diffs based on last_ids -> ids_after
+                    for id in ids_after.iter() {
+                        if !last_ids.contains(id) {
+                            if let Err(e) = tx_clone.send(notifier::Notification::DeviceAdded { id: id.clone() }).await {
+                                log::error!("failed to send DeviceAdded: {:?}", e);
+                            }
+                        }
+                    }
+                    for id in last_ids.iter() {
+                        if !ids_after.contains(id) {
+                            if let Err(e) = tx_clone.send(notifier::Notification::DeviceRemoved { id: id.clone() }).await {
+                                log::error!("failed to send DeviceRemoved: {:?}", e);
+                            }
+                        }
                     }
 
-                    // check default
-                    let default_res = tokio::task::spawn_blocking(|| get_default_from_pactl()).await;
-                    if let Ok(default_opt) = default_res {
-                        if default_opt != last_default {
-                            if let Some(d) = default_opt.clone() {
-                                if let Err(e) = tx_clone.send(notifier::Notification::DefaultDeviceChanged { id: d }).await {
-                                    log::error!("failed to send DefaultDeviceChanged: {:?}", e);
-                                }
+                    // default change
+                    if default_after != last_default {
+                        if let Some(d) = default_after.clone() {
+                            if let Err(e) = tx_clone.send(notifier::Notification::DefaultDeviceChanged { id: d }).await {
+                                log::error!("failed to send DefaultDeviceChanged: {:?}", e);
                             }
-                            last_default = default_opt;
                         }
                     }
+
+                    last_ids = ids_after;
+                    last_default = default_after;
                 }
 
-                sleep(Duration::from_millis(1000)).await;
+                sleep(Duration::from_millis(POLL_INTERVAL_MS)).await;
             }
         });
 
@@ -272,6 +303,144 @@ fn list_device_ids() -> Vec<String> {
     ids
 }
 
+// Helpers: resolve executable & icon paths for sessions
+fn exe_path_for_pid(pid: u32) -> Option<String> {
+    let p = format!("/proc/{}/exe", pid);
+    match std::fs::read_link(p) {
+        Ok(pathbuf) => pathbuf.to_str().map(|s| s.to_string()),
+        Err(_) => None,
+    }
+}
+
+fn resolve_icon_name(icon: &str) -> Option<String> {
+    use std::path::Path;
+    if icon.contains('/') {
+        // absolute or relative path
+        if Path::new(icon).exists() {
+            return Some(icon.to_string());
+        }
+    } else {
+        let exts = ["png", "svg", "xpm"];
+        // check /usr/share/pixmaps
+        for ext in &exts {
+            let cand = format!("/usr/share/pixmaps/{}.{}", icon, ext);
+            if Path::new(&cand).exists() {
+                return Some(cand);
+            }
+        }
+
+        // check hicolor icons common locations
+        if let Ok(entries) = std::fs::read_dir("/usr/share/icons/hicolor") {
+            for entry in entries.flatten() {
+                let size_dir = entry.path();
+                let apps_dir = size_dir.join("apps");
+                if apps_dir.exists() && apps_dir.is_dir() {
+                    for ext in &exts {
+                        let cand = apps_dir.join(format!("{}.{}", icon, ext));
+                        if cand.exists() {
+                            return cand.to_str().map(|s| s.to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        // fallback: search /usr/share/icons recursively shallow
+        if let Ok(entries) = std::fs::read_dir("/usr/share/icons") {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    if let Ok(subs) = std::fs::read_dir(&p) {
+                        for s in subs.flatten() {
+                            let apps = s.path().join("apps");
+                            for ext in &exts {
+                                let cand = apps.join(format!("{}.{}", icon, ext));
+                                if cand.exists() {
+                                    return cand.to_str().map(|s| s.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+fn find_icon_for_process(exe_path: &Option<String>, process_name: &str) -> Option<String> {
+    use std::path::Path;
+    // Try desktop files
+    let candidates = vec![
+        std::env::var("HOME").ok().map(|h| std::path::PathBuf::from(h).join(".local/share/applications")),
+        Some(std::path::PathBuf::from("/usr/share/applications")),
+    ];
+
+    for maybe_dir in candidates.into_iter().flatten() {
+        if let Ok(entries) = std::fs::read_dir(&maybe_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("desktop") {
+                    if let Ok(text) = std::fs::read_to_string(&path) {
+                        let mut icon_field: Option<String> = None;
+                        let mut exec_field: Option<String> = None;
+                        let mut name_field: Option<String> = None;
+                        for line in text.lines() {
+                            if line.starts_with("Icon=") {
+                                icon_field = Some(line[5..].trim().to_string());
+                            } else if line.starts_with("Exec=") {
+                                exec_field = Some(line[5..].trim().to_string());
+                            } else if line.starts_with("Name=") {
+                                name_field = Some(line[5..].trim().to_string());
+                            }
+                        }
+
+                        let mut matched = false;
+                        if let Some(exec) = &exec_field {
+                            if let Some(exe) = exe_path {
+                                if exec.contains(exe.as_str()) || exec.contains(std::path::Path::new(exe).file_name().and_then(|s| s.to_str()).unwrap_or("")) {
+                                    matched = true;
+                                }
+                            } else if let Some(bn) = exec.split_whitespace().next() {
+                                if bn == process_name {
+                                    matched = true;
+                                }
+                            }
+                        }
+                        if !matched {
+                            if let Some(namef) = &name_field {
+                                if namef == process_name {
+                                    matched = true;
+                                }
+                            }
+                        }
+
+                        if matched {
+                            if let Some(ic) = icon_field {
+                                if let Some(path) = resolve_icon_name(&ic) {
+                                    return Some(path);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // fallback: try pixmaps by process name or exe basename
+    let exename = exe_path.as_ref().and_then(|e| std::path::Path::new(e).file_name().and_then(|s| s.to_str())).map(|s| s.to_string()).unwrap_or(process_name.to_string());
+    let exts = ["png", "svg", "xpm"];
+    for ext in &exts {
+        let cand = format!("/usr/share/pixmaps/{}.{}", exename, ext);
+        if Path::new(&cand).exists() {
+            return Some(cand);
+        }
+    }
+
+    None
+}
+
 // Helper: get default sink name via pactl
 fn get_default_from_pactl() -> Option<String> {
     if let Ok(out) = Command::new("pactl").arg("info").output() {
@@ -334,29 +503,94 @@ impl IMMAudioDevice {
     }
 
     pub fn get_volume(&self) -> Result<f32> {
-        // Not implemented: return 1.0 as full volume
+        // Try to parse 'pactl list sinks' and find matching Name: entry
+        if let Ok(out) = Command::new("pactl").arg("list").arg("sinks").output() {
+            if out.status.success() {
+                if let Ok(text) = String::from_utf8(out.stdout) {
+                    let parts: Vec<&str> = text.split("Sink #").collect();
+                    for part in parts.into_iter().skip(1) {
+                        let mut name_match = false;
+                        let mut vol = None;
+                        for line in part.lines() {
+                            let l = line.trim();
+                            if l.starts_with("Name:") {
+                                let name = l[5..].trim();
+                                if name == self.id {
+                                    name_match = true;
+                                }
+                            }
+                            if name_match && l.starts_with("Volume:") {
+                                if let Some(pos) = l.find('%') {
+                                    let slice = &l[..pos];
+                                    if let Some(num_str) = slice.split_whitespace().last() {
+                                        if let Ok(pct) = num_str.parse::<f32>() {
+                                            vol = Some(pct / 100.0);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if name_match {
+                            if let Some(v) = vol {
+                                return Ok(v);
+                            } else {
+                                return Ok(1.0);
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Ok(1.0)
     }
 
     pub fn get_mute_state(&self) -> Result<bool> {
+        if let Ok(out) = Command::new("pactl").arg("list").arg("sinks").output() {
+            if out.status.success() {
+                if let Ok(text) = String::from_utf8(out.stdout) {
+                    let parts: Vec<&str> = text.split("Sink #").collect();
+                    for part in parts.into_iter().skip(1) {
+                        let mut name_match = false;
+                        for line in part.lines() {
+                            let l = line.trim();
+                            if l.starts_with("Name:") {
+                                let name = l[5..].trim();
+                                if name == self.id {
+                                    name_match = true;
+                                }
+                            }
+                            if name_match && l.starts_with("Mute:") {
+                                return Ok(l[5..].trim().starts_with("yes"));
+                            }
+                        }
+                        if name_match {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
         Ok(false)
     }
 
-    pub fn set_volume(&self, _volume: f32) -> Result<()> {
-        // best-effort: try pactl set-sink-volume
+    pub fn set_volume(&self, volume: f32) -> Result<()> {
+        // pactl expects percentage
+        let pct = format!("{}%", (volume * 100.0).round() as i32);
         let _ = Command::new("pactl")
             .arg("set-sink-volume")
             .arg(&self.id)
-            .arg("100%")
+            .arg(&pct)
             .output();
         Ok(())
     }
 
-    pub fn set_mute_state(&self, _mute_state: bool) -> Result<()> {
+    pub fn set_mute_state(&self, mute_state: bool) -> Result<()> {
+        let m = if mute_state { "1" } else { "0" };
         let _ = Command::new("pactl")
             .arg("set-sink-mute")
             .arg(&self.id)
-            .arg("0")
+            .arg(m)
             .output();
         Ok(())
     }
@@ -426,6 +660,11 @@ impl IMMAudioDevice {
                                 }
                             }
 
+                            let exe_opt = if pid != 0 { exe_path_for_pid(pid) } else { None };
+                            let exe_str = exe_opt.clone().unwrap_or_default();
+                            let icon_opt = find_icon_for_process(&exe_opt, if display_name.is_empty() { &process_name } else { &display_name });
+                            let icon_str = icon_opt.unwrap_or_default();
+
                             sessions.push((
                                 session_id,
                                 pid,
@@ -433,8 +672,8 @@ impl IMMAudioDevice {
                                 volume,
                                 muted,
                                 display_name,
-                                String::new(),
-                                String::new(),
+                                exe_str,
+                                icon_str,
                             ));
                         }
                     }
