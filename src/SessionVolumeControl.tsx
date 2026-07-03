@@ -11,11 +11,7 @@ export default function SessionVolumeControl() {
   const { sessions, invokeChangeMute, invokeChangeVolume } = useSessionControlContext();
 
   return (
-    <Box sx={{ mt: 2, p: 2, border: "1px solid #ccc", borderRadius: 1 }}>
-      <Typography variant="h6" gutterBottom>
-        アプリケーション音量
-      </Typography>
-
+    <Box sx={{ mt: 2, p: 2 }}>
       {sessions.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
           実行中のソフトウェアがありません
@@ -80,7 +76,7 @@ function SessionControl(props: SessionControlProps) {
       return splitted.join(".");
     }
 
-    return "不明なソフトウェア";
+    return `不明なソフトウェア (PID: ${session.process_id})`;
   }, []);
 
   const handleVolumeChange = useCallback(

@@ -102,17 +102,15 @@ function Container() {
   return (
     <Card>
       <CardContent>
+        <Meter device={defaultDevice} />
         <SessionControlProvider
           deviceId={defaultDevice?.id || null}
         >
-          <Meter device={defaultDevice} />
           <SessionVolumeControl />
         </SessionControlProvider>
-
       </CardContent>
     </Card>
   )
-
 }
 
 export default App;
