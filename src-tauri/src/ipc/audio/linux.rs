@@ -109,7 +109,40 @@ impl Singleton {
     }
 
     pub fn get_active_audio_devices(self: &Arc<Self>) -> Result<Vec<IMMAudioDevice>> {
-        // Try to call `pw-dump` and parse nodes
+        // Prefer pactl sinks (pulse compatibility) so IDs match notifications like "alsa_output..."
+        if let Ok(out) = Command::new("pactl").arg("list").arg("sinks").output() {
+            if out.status.success() {
+                if let Ok(text) = String::from_utf8(out.stdout) {
+                    // Parse sinks blocks: each block starts with "Sink #"
+                    let mut devices = Vec::new();
+                    let parts: Vec<&str> = text.split("Sink #").collect();
+                    for part in parts.into_iter().skip(1) {
+                        let mut name = None;
+                        let mut desc = None;
+                        for line in part.lines() {
+                            let l = line.trim();
+                            if l.starts_with("Name:") {
+                                name = Some(l[5..].trim().to_string());
+                            } else if l.starts_with("Description:") {
+                                desc = Some(l[12..].trim().to_string());
+                            }
+                        }
+
+                        if let Some(id) = name {
+                            let display = desc.unwrap_or_else(|| id.clone());
+                            let dev = IMMAudioDevice::new(Arc::clone(self), id.clone(), display)?;
+                            devices.push(dev);
+                        }
+                    }
+
+                    if !devices.is_empty() {
+                        return Ok(devices);
+                    }
+                }
+            }
+        }
+
+        // Fallback to pw-dump if pactl not available or returned nothing
         let out = Command::new("pw-dump").output();
 
         let mut devices = Vec::new();
@@ -150,13 +183,7 @@ impl Singleton {
                                                 .unwrap_or("Unknown")
                                                 .to_string();
 
-                                            let dev = IMMAudioDevice {
-                                                is: Arc::clone(self),
-                                                id,
-                                                name,
-                                                // placeholders
-                                                session_control_map: HashMap::new(),
-                                            };
+                                            let dev = IMMAudioDevice::new(Arc::clone(self), id.clone(), name.clone())?;
 
                                             devices.push(dev);
                                         }
