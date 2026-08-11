@@ -4,7 +4,7 @@ import { LogicalSize } from "@tauri-apps/api/dpi";
 import { type UnlistenFn, listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useCallback, useEffect, useRef } from "react";
-import Meter from "./Meter";
+import MasterVolumeControl from "./MasterVolumeControl";
 import SessionVolumeControl from "./SessionVolumeControl";
 import ThemeProvider from "./ThemeProvider";
 import SessionControlProvider from "./contexts/session/SessionControlProvider";
@@ -102,7 +102,7 @@ function Container() {
   return (
     <Card>
       <CardContent>
-        <Meter device={defaultDevice} />
+        <MasterVolumeControl device={defaultDevice} />
         <SessionControlProvider
           deviceId={defaultDevice?.id || null}
         >

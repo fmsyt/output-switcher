@@ -25,7 +25,7 @@ async function registerListeners() {
 
 registerListeners();
 
-export default function Meter(props: MeterProps) {
+export default function MasterVolumeControl(props: MeterProps) {
 
   const { device } = props;
 
