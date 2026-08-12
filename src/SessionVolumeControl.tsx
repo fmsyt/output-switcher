@@ -1,10 +1,12 @@
 import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import { Box, Stack, Tooltip, Typography } from "@mui/material";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import MaskedIcon from './component/MaskedIcon';
 import Slider from "./component/Slider";
 import type { AudioSessionInfo } from "./contexts/audio/types";
 import useSessionControlContext from './contexts/session/useSessionControlContext';
+
+const volumeStep = 0.01;
 
 export default function SessionVolumeControl() {
 
@@ -84,8 +86,44 @@ function SessionControl(props: SessionControlProps) {
     setMuted(newMuted);
   }, [invokeChangeMute, session.session_id, muted])
 
+  const handleWheel = useCallback((event: WheelEvent) => {
+
+    if (muted) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    setVolume((volume) => {
+
+      const delta = event.deltaY || event.deltaX;
+
+      const direction = volume + (delta > 0 ? -volumeStep : volumeStep);
+      const nextVolume = Math.min(1, Math.max(0, direction));
+
+      invokeChangeVolume(session.session_id, nextVolume);
+
+      return nextVolume;
+    })
+
+  }, [invokeChangeVolume, session.session_id, muted]);
+
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!scrollAreaRef.current) {
+      return;
+    }
+
+    scrollAreaRef.current.addEventListener("wheel", handleWheel);
+
+    return () => {
+      scrollAreaRef.current?.removeEventListener("wheel", handleWheel);
+    }
+  }, [handleWheel]);
+
   return (
-    <Stack direction="row" spacing={2} alignItems="center">
+    <Stack direction="row" spacing={2} alignItems="center" ref={scrollAreaRef}>
       <Tooltip
         arrow
         placement="right"
