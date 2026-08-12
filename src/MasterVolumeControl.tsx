@@ -173,7 +173,7 @@ export default function MasterVolumeControl(props: MeterProps) {
           disabled={muted}
           size="small"
         />
-        <Typography variant="body1" textAlign="center" width="2em">
+        <Typography variant="body1" textAlign="center" width={40}>
           {displayVolume(volume)}
         </Typography>
       </Stack>

@@ -9,7 +9,9 @@ export default function DraggingProvider(props: DraggingProviderProps) {
 
   const addIgnoreDragTarget = useCallback((target: HTMLElement) => {
     ignoreDragTargetsRef.current.add(target);
-    target.style.outline = "red solid 1px"; // For debugging, to see which elements are registered
+    if (import.meta.env.DEV) {
+      // target.style.outline = "red solid 1px"; // For debugging, to see which elements are registered
+    }
 
     return () => {
       ignoreDragTargetsRef.current.delete(target);

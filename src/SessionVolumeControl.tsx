@@ -1,5 +1,5 @@
 import VolumeOffIcon from '@mui/icons-material/VolumeOff';
-import { Box, Stack, Typography } from "@mui/material";
+import { Box, Stack, Tooltip, Typography } from "@mui/material";
 import { useCallback, useEffect, useState } from "react";
 import MaskedIcon from './component/MaskedIcon';
 import Slider from "./component/Slider";
@@ -11,33 +11,22 @@ export default function SessionVolumeControl() {
   const { sessions, invokeChangeMute, invokeChangeVolume } = useSessionControlContext();
 
   return (
-    <Box sx={{ mt: 2, p: 2 }}>
-      {sessions.length === 0 ? (
+    <Stack gap={1.5}>
+      {sessions.length === 0 && (
         <Typography variant="body2" color="text.secondary">
           実行中のソフトウェアがありません
         </Typography>
-      ) : (
-        <Stack spacing={2}>
-          {sessions.map((session) => (
-            <Box
-              key={session.session_id}
-              sx={{
-                p: 2,
-                bgcolor: "background.paper",
-                borderRadius: 1,
-                border: "1px solid #e0e0e0",
-              }}
-            >
-              <SessionControl
-                audioSession={session}
-                invokeChangeMute={invokeChangeMute}
-                invokeChangeVolume={invokeChangeVolume}
-              />
-            </Box>
-          ))}
-        </Stack>
       )}
-    </Box>
+      {sessions.map((session) => (
+        <Box key={session.session_id}>
+          <SessionControl
+            audioSession={session}
+            invokeChangeMute={invokeChangeMute}
+            invokeChangeVolume={invokeChangeVolume}
+          />
+        </Box>
+      ))}
+    </Stack>
   );
 }
 
@@ -96,12 +85,16 @@ function SessionControl(props: SessionControlProps) {
   }, [invokeChangeMute, session.session_id, muted])
 
   return (
-    <Stack spacing={1.5}>
-      <Stack direction="row" spacing={1} alignItems="center">
-
+    <Stack direction="row" spacing={2} alignItems="center">
+      <Tooltip
+        arrow
+        placement="right"
+        title={displaySoftwareName(session)}
+      >
         <MaskedIcon
           masked={muted}
           onClick={handleMuteChange}
+          size="small"
           maskComponent={
             <VolumeOffIcon />
           }
@@ -118,28 +111,25 @@ function SessionControl(props: SessionControlProps) {
             </span>
           )}
         </MaskedIcon>
+      </Tooltip>
 
-        <Typography variant="body1" fontWeight="bold">
-          {displaySoftwareName(session)}
-        </Typography>
-      </Stack>
-
-      <Stack direction="row" spacing={2} alignItems="center">
-        <Slider
-          value={volume}
-          onChange={handleVolumeChange()}
-          min={0}
-          max={1}
-          step={0.01}
-          disabled={muted}
-          size="small"
-          sx={{ flexGrow: 1 }}
-        />
-        <Typography variant="body2" sx={{ minWidth: 40 }}>
-          {Math.round(volume * 100)}
-        </Typography>
-      </Stack>
-    </Stack>
+      <Slider
+        value={volume}
+        onChange={handleVolumeChange()}
+        min={0}
+        max={1}
+        step={0.01}
+        disabled={muted}
+        size="small"
+      />
+      <Typography
+        variant="body2"
+        width={40}
+        textAlign="center"
+      >
+        {Math.round(volume * 100)}
+      </Typography>
+    </Stack >
   )
 
 }

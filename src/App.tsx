@@ -1,4 +1,4 @@
-import { Card, CardContent, CssBaseline } from "@mui/material";
+import { CssBaseline, Stack } from "@mui/material";
 import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { type UnlistenFn, listen } from "@tauri-apps/api/event";
@@ -17,36 +17,49 @@ function App() {
   const cardRef = useRef<HTMLDivElement>(null);
   // const { addIgnoreDragTarget, removeIgnoreDragTarget } = useDragging();
 
-  const handleResize = useCallback(() => {
-    if (!cardRef.current) {
-      return;
-    }
-
-    // with padding
-    const width = cardRef.current.offsetHeight;
-    const height = cardRef.current.offsetHeight;
-
-    const physicalSize = new LogicalSize(width, height);
+  const makeHandler = useCallback(() => {
 
     const mainWindow = getCurrentWebviewWindow();
-    // mainWindow.setSize(physicalSize);
 
-    const minSize = new LogicalSize(64, physicalSize.height);
-    const maxSize = new LogicalSize(physicalSize.width, physicalSize.height);
+    const handler = () => {
+      if (!cardRef.current) {
+        return;
+      }
 
-    mainWindow.setMinSize(minSize);
-    mainWindow.setMaxSize(maxSize);
+      // with padding
+      const width = cardRef.current.offsetHeight;
+      const height = cardRef.current.offsetHeight;
+
+      const physicalSize = new LogicalSize(width, height);
+
+      // mainWindow.setSize(physicalSize);
+
+      const minSize = new LogicalSize(64, physicalSize.height);
+      const maxSize = new LogicalSize(physicalSize.width, physicalSize.height);
+
+      // mainWindow.setMinSize(minSize);
+      // mainWindow.setMaxSize(maxSize);
+    }
+
+    const cleanup = () => {
+      mainWindow.setMinSize(null);
+      mainWindow.setMaxSize(null);
+    }
+
+    return { handler, cleanup };
   }, []);
 
   useEffect(() => {
-    handleResize();
+    const { handler, cleanup } = makeHandler();
+    handler();
 
-    window.addEventListener("resize", handleResize);
+    window.addEventListener("resize", handler);
     return () => {
-      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("resize", handler);
+      cleanup();
     }
 
-  }, [handleResize])
+  }, [makeHandler])
 
   useEffect(() => {
 
@@ -100,16 +113,17 @@ function Container() {
 
 
   return (
-    <Card>
-      <CardContent>
-        <MasterVolumeControl device={defaultDevice} />
-        <SessionControlProvider
-          deviceId={defaultDevice?.id || null}
-        >
-          <SessionVolumeControl />
-        </SessionControlProvider>
-      </CardContent>
-    </Card>
+    <Stack
+      padding={2}
+      gap={2}
+    >
+      <MasterVolumeControl device={defaultDevice} />
+      <SessionControlProvider
+        deviceId={defaultDevice?.id || null}
+      >
+        <SessionVolumeControl />
+      </SessionControlProvider>
+    </Stack>
   )
 }
 
