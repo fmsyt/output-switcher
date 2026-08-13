@@ -42,16 +42,11 @@ function SessionControl(props: SessionControlProps) {
 
   const { audioSession: session, invokeChangeMute, invokeChangeVolume } = props;
 
-  const handlerIdRef = useRef<number | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const [volume, setVolume] = useState(props.audioSession.volume);
   const [muted, setMuted] = useState(props.audioSession.muted);
   useEffect(() => {
-    // 処理待ちがある場合は、volume/mutedの更新を行わない
-    if (handlerIdRef.current !== null) {
-      return;
-    }
-
     const { volume, muted } = session;
     setVolume(volume);
     setMuted(muted);
@@ -78,13 +73,17 @@ function SessionControl(props: SessionControlProps) {
   }, []);
 
   const debouncedInvokeChangeVolume = useCallback((volume: number) => {
-    if (handlerIdRef.current !== null) {
-      clearTimeout(handlerIdRef.current);
-    }
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
 
-    handlerIdRef.current = window.setTimeout(() => {
-      invokeChangeVolume(session.session_id, volume);
+    const timeoutId = setTimeout(() => {
+      if (!signal.aborted) {
+        invokeChangeVolume(session.session_id, volume);
+      }
     }, 10);
+
+    signal.addEventListener('abort', () => clearTimeout(timeoutId));
   }, [invokeChangeVolume, session.session_id]);
 
   const handleVolumeChange = useCallback(

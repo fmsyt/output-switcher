@@ -32,14 +32,9 @@ export default function MasterVolumeControl(props: MeterProps) {
   const [volume, setVolume] = useState(device?.volume || 0);
   const [muted, setMuted] = useState(device?.muted);
 
-  const handlerIdRef = useRef<number | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    // 処理待ちがある場合は、volume/mutedの更新を行わない
-    if (handlerIdRef.current !== null) {
-      return;
-    }
-
     if (!device) {
       return;
     }
@@ -56,17 +51,21 @@ export default function MasterVolumeControl(props: MeterProps) {
       return;
     }
 
-    if (handlerIdRef.current !== null) {
-      clearTimeout(handlerIdRef.current);
-    }
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
 
-    handlerIdRef.current = window.setTimeout(async () => {
-      await invokeQuery({
-        kind: "VolumeChange",
-        id: device.id,
-        volume,
-      });
+    const timeoutId = setTimeout(async () => {
+      if (!signal.aborted) {
+        await invokeQuery({
+          kind: "VolumeChange",
+          id: device.id,
+          volume,
+        });
+      }
     }, 10);
+
+    signal.addEventListener('abort', () => clearTimeout(timeoutId));
 
   }, [device?.id]);
 
