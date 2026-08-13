@@ -32,19 +32,26 @@ export default function MasterVolumeControl(props: MeterProps) {
   const [volume, setVolume] = useState(device?.volume || 0);
   const [muted, setMuted] = useState(device?.muted);
 
-  useEffect(() => setVolume(device?.volume || 0), [device?.volume]);
+  const handlerIdRef = useRef<number | null>(null);
+
   useEffect(() => {
-    if (device?.muted !== undefined) {
-      setMuted(device.muted);
+    // 処理待ちがある場合は、volume/mutedの更新を行わない
+    if (handlerIdRef.current !== null) {
       return;
     }
 
-    // NOTE: 再生デバイスがなければミュート扱いにする
-    setMuted(true);
-  }, [device?.muted]);
+    if (!device) {
+      return;
+    }
 
-  const handlerIdRef = useRef<number | null>(null);
-  const invokeChangeVolume = useCallback(async (volume: number) => {
+    const { volume, muted } = device;
+
+    setVolume(volume);
+    setMuted(muted);
+
+  }, [device]);
+
+  const debouncedInvokeChangeVolume = useCallback(async (volume: number) => {
     if (!device?.id) {
       return;
     }
@@ -69,9 +76,9 @@ export default function MasterVolumeControl(props: MeterProps) {
     event.preventDefault();
 
     setVolume(volume as number);
-    invokeChangeVolume(volume as number);
+    debouncedInvokeChangeVolume(volume as number);
 
-  }, [invokeChangeVolume])
+  }, [debouncedInvokeChangeVolume])
 
   const handleWheel = useCallback((event: WheelEvent) => {
 
@@ -89,13 +96,13 @@ export default function MasterVolumeControl(props: MeterProps) {
       const direction = volume + (delta > 0 ? -volumeStep : volumeStep);
       const nextVolume = Math.min(1, Math.max(0, direction));
 
-      invokeChangeVolume(nextVolume);
+      debouncedInvokeChangeVolume(nextVolume);
 
       return nextVolume;
     })
 
 
-  }, [invokeChangeVolume, muted]);
+  }, [debouncedInvokeChangeVolume, muted]);
 
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {

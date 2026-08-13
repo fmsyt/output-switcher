@@ -42,9 +42,16 @@ function SessionControl(props: SessionControlProps) {
 
   const { audioSession: session, invokeChangeMute, invokeChangeVolume } = props;
 
+  const handlerIdRef = useRef<number | null>(null);
+
   const [volume, setVolume] = useState(props.audioSession.volume);
   const [muted, setMuted] = useState(props.audioSession.muted);
   useEffect(() => {
+    // 処理待ちがある場合は、volume/mutedの更新を行わない
+    if (handlerIdRef.current !== null) {
+      return;
+    }
+
     const { volume, muted } = session;
     setVolume(volume);
     setMuted(muted);
@@ -70,13 +77,23 @@ function SessionControl(props: SessionControlProps) {
     return `不明なソフトウェア (PID: ${session.process_id})`;
   }, []);
 
+  const debouncedInvokeChangeVolume = useCallback((volume: number) => {
+    if (handlerIdRef.current !== null) {
+      clearTimeout(handlerIdRef.current);
+    }
+
+    handlerIdRef.current = window.setTimeout(() => {
+      invokeChangeVolume(session.session_id, volume);
+    }, 10);
+  }, [invokeChangeVolume, session.session_id]);
+
   const handleVolumeChange = useCallback(
     () => (_event: Event, newValue: number | number[]) => {
       const volumeValue = newValue as number;
-      invokeChangeVolume(session.session_id, volumeValue);
+      debouncedInvokeChangeVolume(volumeValue);
       setVolume(volumeValue);
     },
-    [invokeChangeVolume, session.session_id]
+    [debouncedInvokeChangeVolume]
   );
 
   const handleMuteChange = useCallback(() => {
@@ -102,12 +119,12 @@ function SessionControl(props: SessionControlProps) {
       const direction = volume + (delta > 0 ? -volumeStep : volumeStep);
       const nextVolume = Math.min(1, Math.max(0, direction));
 
-      invokeChangeVolume(session.session_id, nextVolume);
+      debouncedInvokeChangeVolume(nextVolume);
 
       return nextVolume;
     })
 
-  }, [invokeChangeVolume, session.session_id, muted]);
+  }, [debouncedInvokeChangeVolume, muted]);
 
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
