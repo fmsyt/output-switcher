@@ -51,14 +51,6 @@
         "height": 600,
         "fullscreen": false,
         "maximizable": false,
-        "resizable": true,
-        "transparent": true,
-        "skipTaskbar": true,
-        "alwaysOnTop": true,
-        "hiddenTitle": true,
-        "shadow": false,
-        "titleBarStyle": "Transparent",
-        "decorations": false,
         "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-gpu --disable-background-networking"
       }
     ],
