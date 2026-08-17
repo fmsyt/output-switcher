@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invokeQuery } from "../../ipc";
 import type { AudioStateChangePayload } from "../../ipc/types";
 import type { AudioSessionInfo } from "../audio/types";
@@ -61,11 +61,12 @@ export default function SessionControlProvider(props: SessionControlProviderProp
 
       if (
         (notification.type === "SessionCreated" || notification.type === "SessionTerminated")
-        && notification.device_id === deviceId
       ) {
-        console.log("Session change detected:", notification.type);
+        if ('device_id' in notification && notification.device_id === deviceId) {
+          console.log("Session change detected:", notification.type);
 
-        loader();
+          loader();
+        }
       }
     });
 

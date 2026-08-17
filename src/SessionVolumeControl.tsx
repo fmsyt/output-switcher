@@ -13,7 +13,7 @@ export default function SessionVolumeControl() {
   const { sessions, invokeChangeMute, invokeChangeVolume } = useSessionControlContext();
 
   return (
-    <Stack gap={1.5}>
+    <Stack spacing={1.5}>
       {sessions.length === 0 && (
         <Typography variant="body2" color="text.secondary">
           実行中のソフトウェアがありません
@@ -139,7 +139,14 @@ function SessionControl(props: SessionControlProps) {
   }, [handleWheel]);
 
   return (
-    <Stack direction="row" spacing={2} alignItems="center" ref={scrollAreaRef}>
+    <Stack
+      direction="row"
+      spacing={2}
+      sx={{
+        alignItems: "center",
+      }}
+      ref={scrollAreaRef}
+    >
       <Tooltip
         arrow
         placement="right"
@@ -178,8 +185,10 @@ function SessionControl(props: SessionControlProps) {
       />
       <Typography
         variant="body2"
-        width={40}
-        textAlign="center"
+        sx={{
+          width: 40,
+          textAlign: "center",
+        }}
       >
         {Math.round(volume * 100)}
       </Typography>

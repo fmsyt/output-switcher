@@ -1,19 +1,20 @@
-import { BaseDirectory, readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import { BaseDirectory, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useCallback, useEffect, useState } from "react";
 import ConfigContext from "./ConfigContext";
 import type { Bookmark, Config, ConfigProviderProps } from "./types";
 
-async function loadConfig() {
-  try {
-    const json = await readTextFile("config.json", {
-      baseDir: BaseDirectory.Config,
-    });
-    return JSON.parse(json);
-  } catch (error) {
-    console.error("Failed to load config", error);
-    return null;
-  }
-}
+// Future use: load config on startup
+// async function loadConfig() {
+//   try {
+//     const json = await readTextFile("config.json", {
+//       baseDir: BaseDirectory.Config,
+//     });
+//     return JSON.parse(json);
+//   } catch (error) {
+//     console.error("Failed to load config", error);
+//     return null;
+//   }
+// }
 
 async function saveConfig(config: Config) {
   const json = JSON.stringify(config);

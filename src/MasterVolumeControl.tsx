@@ -139,10 +139,12 @@ export default function MasterVolumeControl(props: MeterProps) {
   return (
     <Grid
       container
-      display="grid"
-      gridTemplateColumns={"max-content 1fr"}
-      gridTemplateRows={"repeat(2, auto)"}
-      alignItems="center"
+      sx={{
+        display: "grid",
+        gridTemplateColumns: "max-content 1fr",
+        gridTemplateRows: "repeat(2, auto)",
+        alignItems: "center",
+      }}
       ref={scrollAreaRef}
     >
       <IconButton
@@ -155,8 +157,9 @@ export default function MasterVolumeControl(props: MeterProps) {
 
       <Typography
         variant="body1"
-        component="div"
-        width="100%"
+        sx={{
+          width: "100%",
+        }}
         noWrap
       >
         {device?.name || "No Device"}
@@ -166,8 +169,10 @@ export default function MasterVolumeControl(props: MeterProps) {
 
       <Stack
         direction="row"
-        alignItems="center"
         spacing={2}
+        sx={{
+          alignItems: "center",
+        }}
       >
         <Slider
           value={volume}
@@ -179,7 +184,13 @@ export default function MasterVolumeControl(props: MeterProps) {
           disabled={muted}
           size="small"
         />
-        <Typography variant="body1" textAlign="center" width={40}>
+        <Typography
+          variant="body1"
+          sx={{
+            textAlign: "center",
+            width: 40,
+          }}
+        >
           {displayVolume(volume)}
         </Typography>
       </Stack>

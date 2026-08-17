@@ -3,7 +3,7 @@ import { CheckMenuItem, Menu, MenuItem, type MenuOptions, PredefinedMenuItem, Su
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useCallback } from "react";
 import type { AudioDeviceInfo } from "./contexts/audio/types";
-import { type QueryKind, invokeQuery } from "./ipc";
+import { invokeQuery, type QueryKind } from "./ipc";
 
 const BOOKMARKS_KEY = 'audio_device_bookmarks';
 
@@ -44,7 +44,6 @@ export default function useRegisterContextMenu(props: Props) {
 
     const bookmarks = getBookmarkedDeviceIds();
     const bookmarkedDevices = deviceList.filter(d => bookmarks.includes(d.id));
-    const unbookmarkedDevices = deviceList.filter(d => !bookmarks.includes(d.id));
 
     const rootItems: MenuOptions["items"] = [];
 

@@ -63,11 +63,12 @@ export default function useAudioSessions(props: Props) {
 
       if (
         (notification.type === "SessionCreated" || notification.type === "SessionTerminated")
-        && notification.device_id === deviceId
       ) {
-        console.log("Session change detected:", notification.type);
+        if ('device_id' in notification && notification.device_id === deviceId) {
+          console.log("Session change detected:", notification.type);
 
-        loader();
+          loader();
+        }
       }
     });
 
