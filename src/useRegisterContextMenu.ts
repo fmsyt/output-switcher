@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { CheckMenuItem, Menu, MenuItem, type MenuOptions, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useCallback } from "react";
+import useConfig from "./config/useConfig";
 import type { AudioDeviceInfo } from "./contexts/audio/types";
 import { invokeQuery, type QueryKind } from "./ipc";
 
@@ -35,6 +36,7 @@ type Props = {
 export default function useRegisterContextMenu(props: Props) {
 
   const { defaultDevice: device, deviceList } = props;
+  const { display, setDisplay } = useConfig();
 
   const handlePopup = useCallback(async () => {
 
@@ -108,6 +110,17 @@ export default function useRegisterContextMenu(props: Props) {
 
     rootItems.push(bookmarkSubmenu);
 
+    // SessionVolumeControl表示切り替えメニュー
+    const toggleSessionControlItem = await CheckMenuItem.new({
+      text: "Show Session Volume Control",
+      checked: display.showSessionVolumeControl ?? true,
+      action: async () => {
+        setDisplay({ showSessionVolumeControl: !(display.showSessionVolumeControl ?? true) });
+      }
+    });
+
+    rootItems.push(toggleSessionControlItem);
+
     const quitItem = await MenuItem.new({
       text: "Quit",
       action: async () => {
@@ -124,7 +137,7 @@ export default function useRegisterContextMenu(props: Props) {
 
     await menu.popup();
 
-  }, [device, deviceList]);
+  }, [device, deviceList, display, setDisplay]);
 
   const handleContextMenu = useCallback((e: WindowEventMap["contextmenu"]) => {
     e.preventDefault();

@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 // import { LogicalSize } from "@tauri-apps/api/dpi";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useEffect } from "react";
+import useConfig from "./config/useConfig";
 import SessionControlProvider from "./contexts/session/SessionControlProvider";
 import DraggingProvider from "./effect/dragging/DraggingProvider";
 import MasterVolumeControl from "./MasterVolumeControl";
@@ -44,6 +45,7 @@ function App() {
 function Container() {
 
   const { audioDeviceList, defaultDevice } = useWindowsAudioState();
+  const { display } = useConfig();
 
   useEffect(() => {
     console.log("Default device changed:", defaultDevice);
@@ -66,11 +68,13 @@ function Container() {
       sx={{ padding: 2 }}
     >
       <MasterVolumeControl device={defaultDevice} />
-      <SessionControlProvider
-        deviceId={defaultDevice?.id || null}
-      >
-        <SessionVolumeControl />
-      </SessionControlProvider>
+      {display.showSessionVolumeControl && (
+        <SessionControlProvider
+          deviceId={defaultDevice?.id || null}
+        >
+          <SessionVolumeControl />
+        </SessionControlProvider>
+      )}
     </Stack>
   )
 }

@@ -8,6 +8,12 @@ const ConfigContext = createContext<ConfigContextType>({
   setBookmark: () => {
     throw new Error("setBookmark function is not defined");
   },
+  display: {
+    showSessionVolumeControl: true,
+  },
+  setDisplay: () => {
+    throw new Error("setDisplay function is not defined");
+  },
 });
 
 export default ConfigContext;
