@@ -4,6 +4,7 @@
 pub mod config;
 pub mod icon_extractor;
 pub mod ipc;
+pub mod power_monitor;
 
 use tauri::State;
 use tauri::{
@@ -22,6 +23,7 @@ use ipc::{
     quit,
     sender::{AudioDeviceMap, AudioSessionInfo},
 };
+use power_monitor::start_power_monitor;
 use std::sync::{Arc, Mutex};
 use tauri_plugin_dialog::DialogExt;
 
@@ -106,6 +108,12 @@ async fn main() -> Result<()> {
         .manage(audio_dict)
         .setup(|app| {
             setup(app, ipc_rx);
+
+            // スリープ復帰監視を開始
+            let app_handle = app.handle().clone();
+            if let Err(e) = start_power_monitor(app_handle) {
+                log::error!("Failed to start power monitor: {:?}", e);
+            }
 
             let quit_menu = MenuItemBuilder::with_id("quit", "終了").build(app)?;
             let version_menu = MenuItemBuilder::with_id("version", "バージョン情報").build(app)?;

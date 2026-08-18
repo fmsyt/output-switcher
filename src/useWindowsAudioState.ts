@@ -11,26 +11,38 @@ const useWindowsAudioState = () => {
 
   const initializeAsyncFn = useRef<(() => Promise<void>) | null>(null);
 
+  // オーディオ状態の初期化関数
+  const initializeAudioState = async () => {
+    const results = await Promise.allSettled([
+      invokeQuery({ kind: "AudioDict" }),
+      invokeQuery({ kind: "Channels" }),
+    ]);
+
+    for (const result of results) {
+      if (result.status === "rejected") {
+        console.error("Failed to initialize audio state", result.reason);
+      }
+    }
+  };
+
   useEffect(() => {
     if (initializeAsyncFn.current !== null) {
       return;
     }
 
     initializeAsyncFn.current = async () => {
+      // オーディオ状態変更のリスナー
       await listen<AudioStateChangePayload>("audio_state_change", (event) => {
         setAudioState(event.payload.windowsAudioState);
       });
 
-      const results = await Promise.allSettled([
-        invokeQuery({ kind: "AudioDict" }),
-        invokeQuery({ kind: "Channels" }),
-      ]);
+      // スリープ復帰のリスナー
+      await listen("system-resume", async () => {
+        console.log("System resumed from sleep, refreshing audio state...");
+        await initializeAudioState();
+      });
 
-      for (const result of results) {
-        if (result.status === "rejected") {
-          console.error("Failed to initialize audio state", result.reason);
-        }
-      }
+      await initializeAudioState();
     };
 
     initializeAsyncFn.current().finally(() => {
