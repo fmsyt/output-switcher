@@ -33,6 +33,20 @@ const useWindowsAudioState = () => {
     initializeAsyncFn.current = async () => {
       // オーディオ状態変更のリスナー
       await listen<AudioStateChangePayload>("audio_state_change", (event) => {
+        const notification = event.payload.notification;
+
+        // デバイス追加・削除・状態変更時は状態を更新
+        if (notification) {
+          const deviceChangeEvents = ["DeviceAdded", "DeviceRemoved", "DeviceStateChanged"];
+          if (deviceChangeEvents.includes(notification.type)) {
+            console.log(`Device change detected: ${notification.type}`, notification);
+            // 状態を更新（少し待ってから）
+            setTimeout(() => {
+              initializeAudioState();
+            }, 500);
+          }
+        }
+
         setAudioState(event.payload.windowsAudioState);
       });
 
