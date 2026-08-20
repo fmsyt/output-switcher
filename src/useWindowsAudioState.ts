@@ -39,7 +39,10 @@ const useWindowsAudioState = () => {
       // スリープ復帰のリスナー
       await listen("system-resume", async () => {
         console.log("System resumed from sleep, refreshing audio state...");
-        await initializeAudioState();
+        // スリープ復帰時は少し待ってから更新
+        setTimeout(() => {
+          initializeAudioState();
+        }, 1000);
       });
 
       await initializeAudioState();
