@@ -1,4 +1,4 @@
-import { CssBaseline, Stack } from "@mui/material";
+import { Box, CssBaseline, Stack } from "@mui/material";
 import { invoke } from "@tauri-apps/api/core";
 // import { LogicalSize } from "@tauri-apps/api/dpi";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -65,16 +65,29 @@ function Container() {
   return (
     <Stack
       spacing={2}
-      sx={{ padding: 2 }}
+      sx={{
+        padding: 2,
+        height: "100svh",
+        overflow: "hidden",
+      }}
     >
-      <MasterVolumeControl device={defaultDevice} />
-      {display.showSessionVolumeControl && (
-        <SessionControlProvider
-          deviceId={defaultDevice?.id || null}
-        >
-          <SessionVolumeControl />
-        </SessionControlProvider>
-      )}
+      <Box sx={{ flexShrink: 0 }}>
+        <MasterVolumeControl device={defaultDevice} />
+      </Box>
+      <Box
+        sx={{
+          flex: 1,
+          overflowY: "auto",
+        }}
+      >
+        {display.showSessionVolumeControl && (
+          <SessionControlProvider
+            deviceId={defaultDevice?.id || null}
+          >
+            <SessionVolumeControl />
+          </SessionControlProvider>
+        )}
+      </Box>
     </Stack>
   )
 }
