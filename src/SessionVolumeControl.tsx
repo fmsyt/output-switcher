@@ -145,7 +145,6 @@ function SessionControl(props: SessionControlProps) {
       sx={{
         alignItems: "center",
       }}
-      ref={scrollAreaRef}
     >
       <Tooltip
         arrow
@@ -175,6 +174,7 @@ function SessionControl(props: SessionControlProps) {
       </Tooltip>
 
       <Slider
+        ref={scrollAreaRef}
         value={volume}
         onChange={handleVolumeChange()}
         min={0}

@@ -145,7 +145,6 @@ export default function MasterVolumeControl(props: MeterProps) {
         gridTemplateRows: "repeat(2, auto)",
         alignItems: "center",
       }}
-      ref={scrollAreaRef}
     >
       <IconButton
         onMouseDown={(e) => e.stopPropagation()}
@@ -175,6 +174,7 @@ export default function MasterVolumeControl(props: MeterProps) {
         }}
       >
         <Slider
+          ref={scrollAreaRef}
           value={volume}
           onMouseDown={(e) => e.stopPropagation()}
           onChange={handleChangeVolume}
