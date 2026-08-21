@@ -182,11 +182,19 @@ function SessionControl(props: SessionControlProps) {
         step={0.01}
         disabled={muted}
         size="small"
+        sx={{
+          ":hover": {
+            "& .MuiSlider-thumb": {
+              color: "white",
+            }
+          }
+        }}
       />
       <Typography
         variant="body2"
         sx={{
           width: 40,
+          userSelect: "none",
           textAlign: "center",
         }}
       >

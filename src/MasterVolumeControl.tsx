@@ -158,6 +158,7 @@ export default function MasterVolumeControl(props: MeterProps) {
         variant="body1"
         sx={{
           width: "100%",
+          userSelect: "none",
         }}
         noWrap
       >
@@ -176,18 +177,25 @@ export default function MasterVolumeControl(props: MeterProps) {
         <Slider
           ref={scrollAreaRef}
           value={volume}
-          onMouseDown={(e) => e.stopPropagation()}
           onChange={handleChangeVolume}
           min={0}
           max={1}
           step={volumeStep}
           disabled={muted}
           size="small"
+          sx={{
+            ":hover": {
+              "& .MuiSlider-thumb": {
+                color: "white",
+              }
+            }
+          }}
         />
         <Typography
           variant="body1"
           sx={{
             textAlign: "center",
+            userSelect: "none",
             width: 40,
           }}
         >
