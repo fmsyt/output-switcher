@@ -78,6 +78,10 @@ function Container() {
         sx={{
           flex: 1,
           overflowY: "auto",
+          scrollbarWidth: "none",
+          ":hover": {
+            animation: "scrollbar-fade-in 0.2s ease-in-out forwards",
+          }
         }}
       >
         {display.showSessionVolumeControl && (

@@ -15,3 +15,14 @@ body {
   /* user-select: none; */
   /* cursor: default; */
 }
+
+@keyframes scrollbar-fade-in {
+  from {
+    scrollbar-width: none;
+    scrollbar-color: transparent transparent;
+  }
+  to {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.5) rgba(0, 0, 0, 0.1);
+  }
+}
