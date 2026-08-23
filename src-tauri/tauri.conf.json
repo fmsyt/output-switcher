@@ -50,6 +50,7 @@
         "width": 800,
         "height": 600,
         "fullscreen": false,
+        "alwaysOnTop": true,
         "maximizable": false,
         "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-gpu --disable-background-networking"
       }
