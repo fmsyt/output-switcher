@@ -45,11 +45,18 @@ export default function useRegisterContextMenu(props: Props) {
     }
 
     const bookmarks = getBookmarkedDeviceIds();
-    const bookmarkedDevices = deviceList.filter(d => bookmarks.includes(d.id));
+    const { bookmarkedDevices, others } = deviceList.reduce((acc, d) => {
+      if (bookmarks.includes(d.id)) {
+        acc.bookmarkedDevices.push(d);
+      } else {
+        acc.others.push(d);
+      }
+      return acc;
+    }, { bookmarkedDevices: [] as AudioDeviceInfo[], others: [] as AudioDeviceInfo[] });
 
     const rootItems: MenuOptions["items"] = [];
 
-    const allDevicesItems = await Promise.all(deviceList.map((d) => {
+    const toDeviceMenuItem = async (d: AudioDeviceInfo) => {
       return CheckMenuItem.new({
         text: d.name,
         checked: d.id === device?.id,
@@ -58,21 +65,21 @@ export default function useRegisterContextMenu(props: Props) {
           await invokeQuery({ kind, id: d.id });
         }
       });
-    }));
+    }
 
-    const bookmarkedItems = await Promise.all(bookmarkedDevices.map((d) => {
-      return CheckMenuItem.new({
-        text: d.name,
-        checked: d.id === device?.id,
-        action: async () => {
-          const kind: QueryKind = "DefaultAudioChange";
-          await invokeQuery({ kind, id: d.id });
-        }
-      });
-    }));
+    const allDevicesItems = await Promise.all(deviceList.map(toDeviceMenuItem));
+    const bookmarkedItems = await Promise.all(bookmarkedDevices.map(toDeviceMenuItem));
 
     if (bookmarkedDevices.length > 0) {
       rootItems.push(...bookmarkedItems);
+      const otherDevicesItems = await Promise.all(others.map(toDeviceMenuItem));
+      if (otherDevicesItems.length > 0) {
+        rootItems.push(await Submenu.new({
+          text: "Other Devices",
+          items: otherDevicesItems
+        }));
+      }
+
     } else {
       rootItems.push(...allDevicesItems);
     }
@@ -82,15 +89,6 @@ export default function useRegisterContextMenu(props: Props) {
     });
 
     rootItems.push(separatorItem);
-
-    if (bookmarkedDevices.length > 0 && deviceList.length > 0) {
-      const allDevicesSubmenu = await Submenu.new({
-        text: "All Devices",
-        items: allDevicesItems
-      });
-
-      rootItems.push(allDevicesSubmenu);
-    }
 
     const bookmarkItems = await Promise.all(deviceList.map((d) => {
       const isBookmarked = bookmarks.includes(d.id);
@@ -104,7 +102,7 @@ export default function useRegisterContextMenu(props: Props) {
     }));
 
     const bookmarkSubmenu = await Submenu.new({
-      text: "Bookmarks",
+      text: "Bookmark",
       items: bookmarkItems
     });
 
