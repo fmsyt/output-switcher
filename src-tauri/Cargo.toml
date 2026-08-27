@@ -25,6 +25,7 @@ tauri-plugin-single-instance = { version = "2" }
 tauri-plugin-window-state = { version = "2" }
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
 
 [dependencies.tauri]
 version = "2"
@@ -45,6 +46,7 @@ features = [
   "Win32_Devices_FunctionDiscovery",
   "Win32_UI_WindowsAndMessaging",
   "Win32_Graphics_Gdi",
+  "Win32_System_Power",
   "implement",
 ]
 

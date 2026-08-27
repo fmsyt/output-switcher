@@ -1,4 +1,4 @@
-import { Checkbox as MuiCheckbox, type CheckboxProps } from "@mui/material";
+import { type CheckboxProps, Checkbox as MuiCheckbox } from "@mui/material";
 import { useEffect, useRef } from "react";
 import useDragging from "../effect/dragging/useDragging";
 

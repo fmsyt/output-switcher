@@ -36,7 +36,7 @@
   },
   "productName": "OutputSwitcher",
   "mainBinaryName": "OutputSwitcher",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "identifier": "output-switcher",
   "plugins": {},
   "app": {
@@ -51,10 +51,7 @@
         "height": 600,
         "fullscreen": false,
         "maximizable": false,
-        "resizable": true,
-        "transparent": true,
-        "skipTaskbar": true,
-        "alwaysOnTop": true
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-gpu --disable-background-networking"
       }
     ],
     "security": {

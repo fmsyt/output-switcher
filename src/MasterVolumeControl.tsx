@@ -25,41 +25,47 @@ async function registerListeners() {
 
 registerListeners();
 
-export default function Meter(props: MeterProps) {
+export default function MasterVolumeControl(props: MeterProps) {
 
   const { device } = props;
 
   const [volume, setVolume] = useState(device?.volume || 0);
   const [muted, setMuted] = useState(device?.muted);
 
-  useEffect(() => setVolume(device?.volume || 0), [device?.volume]);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
-    if (device?.muted !== undefined) {
-      setMuted(device.muted);
+    if (!device) {
       return;
     }
 
-    // NOTE: 再生デバイスがなければミュート扱いにする
-    setMuted(true);
-  }, [device?.muted]);
+    const { volume, muted } = device;
 
-  const handlerIdRef = useRef<number | null>(null);
-  const invokeChangeVolume = useCallback(async (volume: number) => {
+    setVolume(volume);
+    setMuted(muted);
+
+  }, [device]);
+
+  const debouncedInvokeChangeVolume = useCallback(async (volume: number) => {
     if (!device?.id) {
       return;
     }
 
-    if (handlerIdRef.current !== null) {
-      clearTimeout(handlerIdRef.current);
-    }
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
 
-    handlerIdRef.current = window.setTimeout(async () => {
-      await invokeQuery({
-        kind: "VolumeChange",
-        id: device.id,
-        volume,
-      });
+    const timeoutId = setTimeout(async () => {
+      if (!signal.aborted) {
+        await invokeQuery({
+          kind: "VolumeChange",
+          id: device.id,
+          volume,
+        });
+      }
     }, 10);
+
+    signal.addEventListener('abort', () => clearTimeout(timeoutId));
 
   }, [device?.id]);
 
@@ -69,9 +75,9 @@ export default function Meter(props: MeterProps) {
     event.preventDefault();
 
     setVolume(volume as number);
-    invokeChangeVolume(volume as number);
+    debouncedInvokeChangeVolume(volume as number);
 
-  }, [invokeChangeVolume])
+  }, [debouncedInvokeChangeVolume])
 
   const handleWheel = useCallback((event: WheelEvent) => {
 
@@ -89,13 +95,13 @@ export default function Meter(props: MeterProps) {
       const direction = volume + (delta > 0 ? -volumeStep : volumeStep);
       const nextVolume = Math.min(1, Math.max(0, direction));
 
-      invokeChangeVolume(nextVolume);
+      debouncedInvokeChangeVolume(nextVolume);
 
       return nextVolume;
     })
 
 
-  }, [invokeChangeVolume, muted]);
+  }, [debouncedInvokeChangeVolume, muted]);
 
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -133,11 +139,12 @@ export default function Meter(props: MeterProps) {
   return (
     <Grid
       container
-      display="grid"
-      gridTemplateColumns={"max-content 1fr"}
-      gridTemplateRows={"repeat(2, auto)"}
-      alignItems="center"
-      ref={scrollAreaRef}
+      sx={{
+        display: "grid",
+        gridTemplateColumns: "max-content 1fr",
+        gridTemplateRows: "repeat(2, auto)",
+        alignItems: "center",
+      }}
     >
       <IconButton
         onMouseDown={(e) => e.stopPropagation()}
@@ -149,8 +156,10 @@ export default function Meter(props: MeterProps) {
 
       <Typography
         variant="body1"
-        component="div"
-        width="100%"
+        sx={{
+          width: "100%",
+          userSelect: "none",
+        }}
         noWrap
       >
         {device?.name || "No Device"}
@@ -160,20 +169,36 @@ export default function Meter(props: MeterProps) {
 
       <Stack
         direction="row"
-        alignItems="center"
         spacing={2}
+        sx={{
+          alignItems: "center",
+        }}
       >
         <Slider
+          ref={scrollAreaRef}
           value={volume}
-          onMouseDown={(e) => e.stopPropagation()}
           onChange={handleChangeVolume}
           min={0}
           max={1}
           step={volumeStep}
           disabled={muted}
           size="small"
+          sx={{
+            ":hover": {
+              "& .MuiSlider-thumb": {
+                color: "white",
+              }
+            }
+          }}
         />
-        <Typography variant="body1" textAlign="center" width="2em">
+        <Typography
+          variant="body1"
+          sx={{
+            textAlign: "center",
+            userSelect: "none",
+            width: 40,
+          }}
+        >
           {displayVolume(volume)}
         </Typography>
       </Stack>

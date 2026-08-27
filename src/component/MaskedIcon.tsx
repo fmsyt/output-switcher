@@ -1,5 +1,5 @@
-import { IconButton, Box } from "@mui/material";
-import { useContext, useRef, useEffect } from "react";
+import { Box, IconButton } from "@mui/material";
+import { useContext, useEffect, useRef } from "react";
 import DraggingContext from "../effect/dragging/DraggingContext";
 import type { MaskedIconProps } from "./types";
 

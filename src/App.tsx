@@ -1,55 +1,20 @@
-import { Card, CardContent, CssBaseline } from "@mui/material";
+import { Box, CssBaseline, Stack } from "@mui/material";
 import { invoke } from "@tauri-apps/api/core";
-import { LogicalSize } from "@tauri-apps/api/dpi";
-import { type UnlistenFn, listen } from "@tauri-apps/api/event";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { useCallback, useEffect, useRef } from "react";
-import Meter from "./Meter";
-import SessionVolumeControl from "./SessionVolumeControl";
-import ThemeProvider from "./ThemeProvider";
+// import { LogicalSize } from "@tauri-apps/api/dpi";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { useEffect } from "react";
+import useConfig from "./config/useConfig";
 import SessionControlProvider from "./contexts/session/SessionControlProvider";
 import DraggingProvider from "./effect/dragging/DraggingProvider";
+import MasterVolumeControl from "./MasterVolumeControl";
+import SessionVolumeControl from "./SessionVolumeControl";
+import ThemeProvider from "./ThemeProvider";
 import useRegisterContextMenu from "./useRegisterContextMenu";
 import useWindowsAudioState from "./useWindowsAudioState";
 
 function App() {
 
-  const cardRef = useRef<HTMLDivElement>(null);
-  // const { addIgnoreDragTarget, removeIgnoreDragTarget } = useDragging();
-
-  const handleResize = useCallback(() => {
-    if (!cardRef.current) {
-      return;
-    }
-
-    // with padding
-    const width = cardRef.current.offsetHeight;
-    const height = cardRef.current.offsetHeight;
-
-    const physicalSize = new LogicalSize(width, height);
-
-    const mainWindow = getCurrentWebviewWindow();
-    // mainWindow.setSize(physicalSize);
-
-    const minSize = new LogicalSize(64, physicalSize.height);
-    const maxSize = new LogicalSize(physicalSize.width, physicalSize.height);
-
-    // keep max size limit, don't enforce min size to allow compact UI on some platforms
-    mainWindow.setMaxSize(maxSize);
-  }, []);
-
   useEffect(() => {
-    handleResize();
-
-    window.addEventListener("resize", handleResize);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    }
-
-  }, [handleResize])
-
-  useEffect(() => {
-
     let unListen: UnlistenFn | undefined = undefined;
 
     (async () => {
@@ -71,10 +36,7 @@ function App() {
     <DraggingProvider>
       <ThemeProvider>
         <CssBaseline />
-
-        <div ref={cardRef}>
-          <Container />
-        </div>
+        <Container />
       </ThemeProvider>
     </DraggingProvider>
   );
@@ -83,6 +45,7 @@ function App() {
 function Container() {
 
   const { audioDeviceList, defaultDevice } = useWindowsAudioState();
+  const { display } = useConfig();
 
   useEffect(() => {
     console.log("Default device changed:", defaultDevice);
@@ -100,16 +63,32 @@ function Container() {
 
 
   return (
-    <Card>
-      <CardContent>
-        <Meter device={defaultDevice} />
-        <SessionControlProvider
-          deviceId={defaultDevice?.id || null}
-        >
-          <SessionVolumeControl />
-        </SessionControlProvider>
-      </CardContent>
-    </Card>
+    <Stack
+      spacing={2}
+      sx={{
+        padding: 2,
+        height: "100svh",
+        overflow: "hidden",
+      }}
+    >
+      <Box sx={{ flexShrink: 0 }}>
+        <MasterVolumeControl device={defaultDevice} />
+      </Box>
+      <Box
+        sx={{
+          flex: 1,
+          overflowY: "auto",
+        }}
+      >
+        {display.showSessionVolumeControl && (
+          <SessionControlProvider
+            deviceId={defaultDevice?.id || null}
+          >
+            <SessionVolumeControl />
+          </SessionControlProvider>
+        )}
+      </Box>
+    </Stack>
   )
 }
 

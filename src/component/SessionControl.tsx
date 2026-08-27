@@ -5,7 +5,7 @@ type SessionControlProps = {
   audioSession: AudioSessionInfo;
 }
 
-export default function SessionControl(props: SessionControlProps) {
+export default function SessionControl(_props: SessionControlProps) {
   return (
     <Box>
       ダミー

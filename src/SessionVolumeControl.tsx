@@ -1,43 +1,34 @@
 import VolumeOffIcon from '@mui/icons-material/VolumeOff';
-import { Box, Stack, Typography } from "@mui/material";
-import { useCallback, useEffect, useState } from "react";
+import { Box, Stack, Tooltip, Typography } from "@mui/material";
+import { useCallback, useEffect, useRef, useState } from "react";
 import MaskedIcon from './component/MaskedIcon';
 import Slider from "./component/Slider";
 import type { AudioSessionInfo } from "./contexts/audio/types";
 import useSessionControlContext from './contexts/session/useSessionControlContext';
+
+const volumeStep = 0.01;
 
 export default function SessionVolumeControl() {
 
   const { sessions, invokeChangeMute, invokeChangeVolume } = useSessionControlContext();
 
   return (
-    <Box sx={{ mt: 2, p: 2 }}>
-      {sessions.length === 0 ? (
+    <Stack spacing={1.5}>
+      {sessions.length === 0 && (
         <Typography variant="body2" color="text.secondary">
           実行中のソフトウェアがありません
         </Typography>
-      ) : (
-        <Stack spacing={2}>
-          {sessions.map((session) => (
-            <Box
-              key={session.session_id}
-              sx={{
-                p: 2,
-                bgcolor: "background.paper",
-                borderRadius: 1,
-                border: "1px solid #e0e0e0",
-              }}
-            >
-              <SessionControl
-                audioSession={session}
-                invokeChangeMute={invokeChangeMute}
-                invokeChangeVolume={invokeChangeVolume}
-              />
-            </Box>
-          ))}
-        </Stack>
       )}
-    </Box>
+      {sessions.map((session) => (
+        <Box key={session.session_id}>
+          <SessionControl
+            audioSession={session}
+            invokeChangeMute={invokeChangeMute}
+            invokeChangeVolume={invokeChangeVolume}
+          />
+        </Box>
+      ))}
+    </Stack>
   );
 }
 
@@ -50,6 +41,8 @@ type SessionControlProps = {
 function SessionControl(props: SessionControlProps) {
 
   const { audioSession: session, invokeChangeMute, invokeChangeVolume } = props;
+
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const [volume, setVolume] = useState(props.audioSession.volume);
   const [muted, setMuted] = useState(props.audioSession.muted);
@@ -79,13 +72,27 @@ function SessionControl(props: SessionControlProps) {
     return `不明なソフトウェア (PID: ${session.process_id})`;
   }, []);
 
+  const debouncedInvokeChangeVolume = useCallback((volume: number) => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
+    const timeoutId = setTimeout(() => {
+      if (!signal.aborted) {
+        invokeChangeVolume(session.session_id, volume);
+      }
+    }, 10);
+
+    signal.addEventListener('abort', () => clearTimeout(timeoutId));
+  }, [invokeChangeVolume, session.session_id]);
+
   const handleVolumeChange = useCallback(
     () => (_event: Event, newValue: number | number[]) => {
       const volumeValue = newValue as number;
-      invokeChangeVolume(session.session_id, volumeValue);
+      debouncedInvokeChangeVolume(volumeValue);
       setVolume(volumeValue);
     },
-    [invokeChangeVolume, session.session_id]
+    [debouncedInvokeChangeVolume]
   );
 
   const handleMuteChange = useCallback(() => {
@@ -95,13 +102,59 @@ function SessionControl(props: SessionControlProps) {
     setMuted(newMuted);
   }, [invokeChangeMute, session.session_id, muted])
 
-  return (
-    <Stack spacing={1.5}>
-      <Stack direction="row" spacing={1} alignItems="center">
+  const handleWheel = useCallback((event: WheelEvent) => {
 
+    if (muted) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    setVolume((volume) => {
+
+      const delta = event.deltaY || event.deltaX;
+
+      const direction = volume + (delta > 0 ? -volumeStep : volumeStep);
+      const nextVolume = Math.min(1, Math.max(0, direction));
+
+      debouncedInvokeChangeVolume(nextVolume);
+
+      return nextVolume;
+    })
+
+  }, [debouncedInvokeChangeVolume, muted]);
+
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!scrollAreaRef.current) {
+      return;
+    }
+
+    scrollAreaRef.current.addEventListener("wheel", handleWheel);
+
+    return () => {
+      scrollAreaRef.current?.removeEventListener("wheel", handleWheel);
+    }
+  }, [handleWheel]);
+
+  return (
+    <Stack
+      direction="row"
+      spacing={2}
+      sx={{
+        alignItems: "center",
+      }}
+    >
+      <Tooltip
+        arrow
+        placement="right"
+        title={displaySoftwareName(session)}
+      >
         <MaskedIcon
           masked={muted}
           onClick={handleMuteChange}
+          size="small"
           maskComponent={
             <VolumeOffIcon />
           }
@@ -118,28 +171,36 @@ function SessionControl(props: SessionControlProps) {
             </span>
           )}
         </MaskedIcon>
+      </Tooltip>
 
-        <Typography variant="body1" fontWeight="bold">
-          {displaySoftwareName(session)}
-        </Typography>
-      </Stack>
-
-      <Stack direction="row" spacing={2} alignItems="center">
-        <Slider
-          value={volume}
-          onChange={handleVolumeChange()}
-          min={0}
-          max={1}
-          step={0.01}
-          disabled={muted}
-          size="small"
-          sx={{ flexGrow: 1 }}
-        />
-        <Typography variant="body2" sx={{ minWidth: 40 }}>
-          {Math.round(volume * 100)}
-        </Typography>
-      </Stack>
-    </Stack>
+      <Slider
+        ref={scrollAreaRef}
+        value={volume}
+        onChange={handleVolumeChange()}
+        min={0}
+        max={1}
+        step={0.01}
+        disabled={muted}
+        size="small"
+        sx={{
+          ":hover": {
+            "& .MuiSlider-thumb": {
+              color: "white",
+            }
+          }
+        }}
+      />
+      <Typography
+        variant="body2"
+        sx={{
+          width: 40,
+          userSelect: "none",
+          textAlign: "center",
+        }}
+      >
+        {Math.round(volume * 100)}
+      </Typography>
+    </Stack >
   )
 
 }

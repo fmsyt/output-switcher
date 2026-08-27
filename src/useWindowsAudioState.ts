@@ -11,31 +11,55 @@ const useWindowsAudioState = () => {
 
   const initializeAsyncFn = useRef<(() => Promise<void>) | null>(null);
 
+  // オーディオ状態の初期化関数
+  const initializeAudioState = async () => {
+    const results = await Promise.allSettled([
+      invokeQuery({ kind: "AudioDict" }),
+      invokeQuery({ kind: "Channels" }),
+    ]);
+
+    for (const result of results) {
+      if (result.status === "rejected") {
+        console.error("Failed to initialize audio state", result.reason);
+      }
+    }
+  };
+
   useEffect(() => {
     if (initializeAsyncFn.current !== null) {
       return;
     }
 
     initializeAsyncFn.current = async () => {
+      // オーディオ状態変更のリスナー
       await listen<AudioStateChangePayload>("audio_state_change", (event) => {
-        const payload = event.payload;
-        // Prefer the new platform-agnostic field, fall back to legacy windows field.
-        const newState = (payload as any).audioState ?? (payload as any).windowsAudioState ?? (payload as any).pipewireAudioState;
-        if (newState) {
-          setAudioState(newState);
+        const notification = event.payload.notification;
+
+        // デバイス追加・削除・状態変更時は状態を更新
+        if (notification) {
+          const deviceChangeEvents = ["DeviceAdded", "DeviceRemoved", "DeviceStateChanged"];
+          if (deviceChangeEvents.includes(notification.type)) {
+            console.log(`Device change detected: ${notification.type}`, notification);
+            // 状態を更新（少し待ってから）
+            setTimeout(() => {
+              initializeAudioState();
+            }, 500);
+          }
         }
+
+        setAudioState(event.payload.windowsAudioState);
       });
 
-      const results = await Promise.allSettled([
-        invokeQuery({ kind: "AudioDict" }),
-        invokeQuery({ kind: "Channels" }),
-      ]);
+      // スリープ復帰のリスナー
+      await listen("system-resume", async () => {
+        console.log("System resumed from sleep, refreshing audio state...");
+        // スリープ復帰時は少し待ってから更新
+        setTimeout(() => {
+          initializeAudioState();
+        }, 1000);
+      });
 
-      for (const result of results) {
-        if (result.status === "rejected") {
-          console.error("Failed to initialize audio state", result.reason);
-        }
-      }
+      await initializeAudioState();
     };
 
     initializeAsyncFn.current().finally(() => {
