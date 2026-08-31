@@ -17,17 +17,37 @@ type AudioDict = BTreeMap<String, IMMAudioDevice>;
 #[derive(serde::Deserialize, Debug, Clone)]
 #[serde(tag = "kind")]
 pub enum IPCHandlers {
-    AudioDictUpdate { notification: Notification },
+    AudioDictUpdate {
+        notification: Notification,
+    },
     AudioDict,
-    DefaultAudioChange { id: String },
-    VolumeChange { id: String, volume: f32 },
-    MuteStateChange { id: String, muted: bool },
+    DefaultAudioChange {
+        id: String,
+    },
+    VolumeChange {
+        id: String,
+        volume: f32,
+    },
+    MuteStateChange {
+        id: String,
+        muted: bool,
+    },
     #[serde(rename_all = "camelCase")]
-    SessionVolumeChange { id: String, session_id: String, volume: f32 },
+    SessionVolumeChange {
+        id: String,
+        session_id: String,
+        volume: f32,
+    },
     #[serde(rename_all = "camelCase")]
-    SessionMuteStateChange { id: String, session_id: String, muted: bool },
+    SessionMuteStateChange {
+        id: String,
+        session_id: String,
+        muted: bool,
+    },
 
-    AudioSessionDict { id: String },
+    AudioSessionDict {
+        id: String,
+    },
 }
 
 const RECEIVE_INTERVAL: Duration = Duration::from_millis(100);
@@ -83,9 +103,7 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
     let audio_dict_clone = audio_dict.clone();
 
     let backend_thread = tokio::spawn(async move {
-
         while let Some(q) = query_rx.recv().await {
-
             #[cfg(debug_assertions)]
             println!("Received IPC query: {:?}", q);
 
@@ -96,7 +114,8 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                     // SessionCreated または SessionTerminated の場合は辞書を更新
                     let should_update_dict = matches!(
                         notification,
-                        Notification::SessionCreated { .. } | Notification::SessionTerminated { .. }
+                        Notification::SessionCreated { .. }
+                            | Notification::SessionTerminated { .. }
                     );
 
                     if should_update_dict {
@@ -209,7 +228,11 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                         // continue;
                     }
                 }
-                IPCHandlers::SessionVolumeChange { id, session_id, volume } => {
+                IPCHandlers::SessionVolumeChange {
+                    id,
+                    session_id,
+                    volume,
+                } => {
                     let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
                         inner: UnexpectedErr::LockError,
                     })?;
@@ -226,17 +249,21 @@ pub async fn prepare_backend() -> Result<BackendPrepareRet> {
                         }
                     };
 
-                    let e = audio
-                        .set_session_volume(&session_id, volume)
-                        .map_err(|e| APIError::SomethingWrong {
+                    let e = audio.set_session_volume(&session_id, volume).map_err(|e| {
+                        APIError::SomethingWrong {
                             msg: format!("@audio.set_session_volume {:?}", e),
-                        });
+                        }
+                    });
 
                     if let Err(e) = e {
                         log::error!("{:?}", e);
                     }
                 }
-                IPCHandlers::SessionMuteStateChange { id, session_id, muted } => {
+                IPCHandlers::SessionMuteStateChange {
+                    id,
+                    session_id,
+                    muted,
+                } => {
                     let dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
                         inner: UnexpectedErr::LockError,
                     })?;
