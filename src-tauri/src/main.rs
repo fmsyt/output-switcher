@@ -38,6 +38,7 @@ async fn main() -> Result<()> {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_single_instance::Builder::default().build())
         .invoke_handler(tauri::generate_handler![query, quit, get_audio_sessions])
         .manage(ipc_tx)
         .manage(audio_dict)
