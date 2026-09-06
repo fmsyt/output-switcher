@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import ConfigContext from "./ConfigContext";
-import type { Bookmark, Config, ConfigProviderProps, Display } from "./types";
+import type { Bookmark, Config, ConfigProviderProps } from "./types";
 
 const CONFIG_STORAGE_KEY = "output-switcher-config";
 
@@ -17,9 +17,6 @@ function loadConfigFromLocalStorage(): Config {
   return {
     bookmark: {
       deviceIdList: [],
-    },
-    display: {
-      showSessionVolumeControl: true,
     },
   };
 }
@@ -46,20 +43,11 @@ export default function ConfigProvider({ children }: ConfigProviderProps) {
     }));
   }, []);
 
-  const setDisplay = useCallback((display: Display) => {
-    setConfig(prevConfig => ({
-      ...prevConfig,
-      display: { ...prevConfig.display, ...display },
-    }));
-  }, []);
-
   return (
     <ConfigContext.Provider
       value={{
-        bookmark: config.bookmark,
+        ...config,
         setBookmark,
-        display: config.display,
-        setDisplay,
       }}
     >
       {children}
