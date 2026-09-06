@@ -43,8 +43,8 @@
     "windows": [
       {
         "title": "OutputSwitcher",
-        "width": 800,
-        "height": 600,
+        "width": 200,
+        "height": 94,
         "fullscreen": false,
         "alwaysOnTop": true,
         "maximizable": false,
