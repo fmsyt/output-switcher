@@ -14,6 +14,7 @@ use super::{
 pub type AudioDeviceMap = BTreeMap<String, IMMAudioDevice>;
 
 #[derive(serde::Serialize, Debug, Clone)]
+/// 再生中のオーディオセッションの情報を表す構造体
 pub struct AudioSessionInfo {
     pub session_id: String,
     pub process_id: u32,
@@ -27,7 +28,17 @@ pub struct AudioSessionInfo {
 }
 
 impl AudioSessionInfo {
-    pub fn from_session(session_id: String, process_id: u32, process_name: String, volume: f32, muted: bool, display_name: String, icon_path: String, exe_path: String, icon_data: String) -> Self {
+    pub fn from_session(
+        session_id: String,
+        process_id: u32,
+        process_name: String,
+        volume: f32,
+        muted: bool,
+        display_name: String,
+        icon_path: String,
+        exe_path: String,
+        icon_data: String,
+    ) -> Self {
         Self {
             session_id,
             process_id,
@@ -43,6 +54,7 @@ impl AudioSessionInfo {
 }
 
 #[derive(serde::Serialize, Debug, Clone)]
+/// 物理的に接続されているオーディオデバイスの情報を表す構造体
 pub struct AudioDeviceInfo {
     id: String,
     name: String,
