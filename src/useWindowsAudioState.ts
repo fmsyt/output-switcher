@@ -7,7 +7,7 @@ import type { AudioStateChangePayload, WindowsAudioState } from "./ipc/types";
 const useWindowsAudioState = () => {
 
   const [initializing, setInitializing] = useState(true);
-  const [audioState, setAudioState] = useState<WindowsAudioState>();
+  const [audioState, setAudioState] = useState<WindowsAudioState | null>(null);
 
   const initializeAsyncFn = useRef<(() => Promise<void>) | null>(null);
 
@@ -15,7 +15,6 @@ const useWindowsAudioState = () => {
   const initializeAudioState = async () => {
     const results = await Promise.allSettled([
       invokeQuery({ kind: "AudioDict" }),
-      invokeQuery({ kind: "Channels" }),
     ]);
 
     for (const result of results) {
@@ -33,6 +32,9 @@ const useWindowsAudioState = () => {
     initializeAsyncFn.current = async () => {
       // オーディオ状態変更のリスナー
       await listen<AudioStateChangePayload>("audio_state_change", (event) => {
+
+        console.info("Audio state change event received:", event);
+
         const notification = event.payload.notification;
 
         // デバイス追加・削除・状態変更時は状態を更新
@@ -71,12 +73,15 @@ const useWindowsAudioState = () => {
 
   const defaultDevice = useMemo<AudioDeviceInfo | null>(() => {
     if (!audioState?.default) {
+      console.warn("No default audio device set in the audio state.");
       return null;
     }
 
-    const device = audioDeviceList.find(device => device.id === audioState.default);
+    const device = audioState.audioDeviceList.find(device => device.id === audioState.default);
+    console.log("Default audio device:", device);
+
     return device ?? null;
-  }, [audioState?.default, audioDeviceList]);
+  }, [audioState]);
 
   return {
     defaultDevice,

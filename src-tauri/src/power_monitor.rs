@@ -2,11 +2,18 @@ use std::sync::mpsc;
 use tauri::{AppHandle, Emitter};
 use windows::{
     core::*,
-    Win32::{Foundation::*, UI::WindowsAndMessaging::*},
+    Win32::{
+        Foundation::*,
+        System::RemoteDesktop::{WTSRegisterSessionNotification, NOTIFY_FOR_THIS_SESSION},
+        UI::WindowsAndMessaging::*,
+    },
 };
 
 const WM_POWERBROADCAST: u32 = 0x0218;
 const PBT_APMRESUMEAUTOMATIC: usize = 0x0012;
+const WM_WTSSESSION_CHANGE: u32 = 0x02B1;
+const WTS_SESSION_LOCK: usize = 0x7;
+const WTS_SESSION_UNLOCK: usize = 0x8;
 
 pub fn start_power_monitor(app: AppHandle) -> anyhow::Result<()> {
     std::thread::spawn(move || {
@@ -50,6 +57,10 @@ fn run_power_monitor(app: AppHandle) -> Result<()> {
             return Err(Error::from_win32());
         }
 
+        if WTSRegisterSessionNotification(hwnd, NOTIFY_FOR_THIS_SESSION).is_err() {
+            return Err(Error::from_win32());
+        }
+
         // メッセージループ
         let mut msg = MSG::default();
         loop {
@@ -88,6 +99,17 @@ unsafe extern "system" fn window_proc(
         if !create_struct.is_null() {
             let tx_ptr = (*create_struct).lpCreateParams as isize;
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, tx_ptr);
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    {
+        if msg == WM_WTSSESSION_CHANGE {
+            match wparam.0 {
+                WTS_SESSION_LOCK => println!("(Debug) Windows locked"),
+                WTS_SESSION_UNLOCK => println!("(Debug) Windows unlocked"),
+                _ => {}
+            }
         }
     }
 

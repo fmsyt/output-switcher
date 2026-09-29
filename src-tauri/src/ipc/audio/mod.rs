@@ -98,6 +98,11 @@ impl Singleton {
             })
             .collect::<Result<Vec<_>>>()?;
 
+        #[cfg(debug_assertions)]
+        {
+            devices.iter().for_each(|d| println!("Active audio device: id {:?}, name {:?}", d.id, d.name));
+        }
+
         Ok(devices)
     }
 
