@@ -15,6 +15,11 @@ const WM_WTSSESSION_CHANGE: u32 = 0x02B1;
 const WTS_SESSION_LOCK: usize = 0x7;
 const WTS_SESSION_UNLOCK: usize = 0x8;
 
+enum PowerEvent {
+    ResumeFromSleep,
+    SessionUnlock,
+}
+
 pub fn start_power_monitor(app: AppHandle) -> anyhow::Result<()> {
     std::thread::spawn(move || {
         if let Err(e) = run_power_monitor(app) {
@@ -27,7 +32,7 @@ pub fn start_power_monitor(app: AppHandle) -> anyhow::Result<()> {
 
 fn run_power_monitor(app: AppHandle) -> Result<()> {
     unsafe {
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = mpsc::channel::<PowerEvent>();
 
         let class_name = w!("PowerMonitorClass");
         let wnd_class = WNDCLASSW {
@@ -71,9 +76,16 @@ fn run_power_monitor(app: AppHandle) -> Result<()> {
             }
 
             // チャネルからのイベントを確認
-            if let Ok(()) = rx.try_recv() {
-                log::info!("System resumed from sleep");
-                let _ = app.emit("system-resume", ());
+            if let Ok(event) = rx.try_recv() {
+                match event {
+                    PowerEvent::ResumeFromSleep => {
+                        log::info!("System resumed from sleep");
+                        let _ = app.emit("system-resume", ());
+                    }
+                    PowerEvent::SessionUnlock => {
+                        let _ = app.emit("system-resume", ());
+                    }
+                }
             }
         }
     }
@@ -88,10 +100,10 @@ unsafe extern "system" fn window_proc(
     if msg == WM_POWERBROADCAST {
         if wparam.0 == PBT_APMRESUMEAUTOMATIC {
             // ウィンドウ作成時に渡したチャネルを取得
-            let tx_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *const mpsc::Sender<()>;
+            let tx_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *const mpsc::Sender<PowerEvent>;
             if !tx_ptr.is_null() {
                 let tx = &*tx_ptr;
-                let _ = tx.send(());
+                let _ = tx.send(PowerEvent::ResumeFromSleep);
             }
         }
     } else if msg == WM_CREATE {
@@ -102,14 +114,23 @@ unsafe extern "system" fn window_proc(
         }
     }
 
-    #[cfg(debug_assertions)]
-    {
-        if msg == WM_WTSSESSION_CHANGE {
-            match wparam.0 {
-                WTS_SESSION_LOCK => println!("(Debug) Windows locked"),
-                WTS_SESSION_UNLOCK => println!("(Debug) Windows unlocked"),
-                _ => {}
+    if msg == WM_WTSSESSION_CHANGE {
+        match wparam.0 {
+            WTS_SESSION_LOCK => {
+                #[cfg(debug_assertions)]
+                println!("(Debug) Windows locked");
             }
+            WTS_SESSION_UNLOCK => {
+                #[cfg(debug_assertions)]
+                println!("(Debug) Windows unlocked");
+
+                let tx_ptr =
+                    GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *const mpsc::Sender<PowerEvent>;
+                if !tx_ptr.is_null() {
+                    let _ = (*tx_ptr).send(PowerEvent::SessionUnlock);
+                }
+            }
+            _ => {}
         }
     }
 
