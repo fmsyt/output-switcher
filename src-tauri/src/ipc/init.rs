@@ -110,6 +110,15 @@ async fn spawn_backend_thread(
                 }
             }
             IPCHandlers::AudioDict => {
+                {
+                    let mut dict = audio_dict.lock().map_err(|_| APIError::Unexpected {
+                        inner: UnexpectedErr::LockError,
+                    })?;
+                    *dict = get_audio_dictionary(&is).map_err(|e| APIError::SomethingWrong {
+                        msg: format!("@get_audio_dict {:?}", e),
+                    })?;
+                }
+
                 let e = ipc_sender(&is, &audio_dict, None, &frontend_update_tx).await;
 
                 if let Err(e) = e {
