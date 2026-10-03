@@ -1,4 +1,8 @@
 {
+  "productName": "OutputSwitcher",
+  "mainBinaryName": "OutputSwitcher",
+  "version": "0.3.3",
+  "identifier": "output-switcher",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "beforeBuildCommand": "pnpm build",
@@ -34,10 +38,6 @@
       "icons/icon.ico"
     ]
   },
-  "productName": "OutputSwitcher",
-  "mainBinaryName": "OutputSwitcher",
-  "version": "0.3.2",
-  "identifier": "output-switcher",
   "plugins": {},
   "app": {
     "windows": [
